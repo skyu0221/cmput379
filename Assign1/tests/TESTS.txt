@@ -1,0 +1,8 @@
+driver1:
+place instances of the pattern on the heap to see if findPattern() finds them
+
+driver2:
+create local instances of the pattern on the stack
+
+driver3:
+map a file into memory using mmap(2). Then use mmap(2) to change the mode of the memory you are mapping to.
