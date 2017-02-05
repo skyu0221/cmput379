@@ -49,18 +49,19 @@ unsigned int findpattern ( unsigned char   *pattern,
 				current++;
 			}
 
-			if ( index == patlength )
+			if ( index )
+				current--;
+
+			if ( index-- == patlength ) {
 				counter++;
 
-			if ( counter <= loclength ) {
+				if ( counter <= loclength ) {
 
-				locations[counter].location = current;
-				locations[counter].mode     = mode;
+					locations[counter - 1].location = current - index;
+					locations[counter - 1].mode     = mode;
+				}
 			}
 		}
 	}
-
-	return counter;
-    //loop through pages and find pattern match (2^32-1)
-    //segmentation fault handling ?
+	return counter / 2 - 1;
 }
