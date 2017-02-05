@@ -63,5 +63,5 @@ unsigned int findpattern ( unsigned char   *pattern,
 			}
 		}
 	}
-	return counter / 2 - 1;
+	return counter;
 }
