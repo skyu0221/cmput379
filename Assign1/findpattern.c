@@ -15,6 +15,6 @@ unsigned int findpattern ( unsigned char   *pattern,
 
 int main(){
     
-    findpattern(pattern, patlength, locations, loclength);
+    //findpattern(pattern, patlength, locations, loclength);
     return 0;
 }
