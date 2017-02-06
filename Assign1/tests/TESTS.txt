@@ -1,8 +1,36 @@
 driver1:
-place instances of the pattern on the heap to see if findPattern() finds them
+Place instances of the pattern on the heap to see if findPattern() finds them.
 
+Currently, a good idea for our driver is using pattern "alabula". The reason of
+choosing this as pattern is we want to avoid protential match in any other
+memory space. We use MALLOC create a CHAR* with length of 51 (1 for '\0') and
+we put texts in it makes it contains ONE pattern. Then we change the texts to
+make it contains THREE pattern. At the end we use REALLOC make a copy of this
+CHAR* and increase the size to 72 with a text. In this CHAR* it includes TWO 
+patterns.
+
+In general
+First call findpattern() should return 2 (1 in text and 1 for pattern itself).
+Second call findpattern() should return 4 (3 in text and 1 for pattern itself).
+Third call findpattern() should return 9 (3 in first text and 
+                                          5 in second text and
+                                          1 for pattern itself).
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 driver2:
-create local instances of the pattern on the stack
+Create local instances of the pattern on the stack.
 
+This setup is pretty similar to the driver1 but we put values in stack. We use
+memset to initialize two texts to zeros. First put ONE pattern into first text,
+then add TWO more pattern into first text, then put TWO pattern into second
+text.
+
+In general
+First call findpattern() should return 2 (1 in text and 1 for pattern itself).
+Second call findpattern() should return 4 (3 in text and 1 for pattern itself).
+Third call findpattern() should return 6 (3 in first 7text and 
+                                          2 in second text and
+                                          1 for pattern itself).
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 driver3:
-map a file into memory using mmap(2). Then use mmap(2) to change the mode of the memory you are mapping to.
+map a file into memory using mmap(2). Then use mmap(2) to change the mode of the
+memory you are mapping to.

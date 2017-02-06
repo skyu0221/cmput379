@@ -13,6 +13,9 @@ int main ( int argc, char *argv[] ) {
 
 	unsigned char instances[51], even_more[22];
 
+	memset( instances, 0, sizeof( instances ) );
+	memset( even_more, 0, sizeof( even_more ) );
+
 	struct patmatch *locations = malloc( sizeof( struct patmatch ) * 5 );
 
 	strcpy( instances, "Try to test follow: alabula alabull" );
