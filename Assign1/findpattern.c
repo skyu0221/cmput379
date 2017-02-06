@@ -14,7 +14,8 @@ unsigned int findpattern ( unsigned char   *pattern,
 
 	unsigned int  page    = START_ADDR,
 	              counter = 0,
-	              current, index;
+	              current = START_ADDR,
+	              index;
 	unsigned char checker, mode;
 
 	struct sigaction act;
@@ -39,7 +40,11 @@ unsigned int findpattern ( unsigned char   *pattern,
 		else
 			mode = MEM_RO;
 
-		for ( current = page; current < page + getpagesize(); current++  ) {
+		if ( current < page )
+			current = page;
+		//else printf("%u | %u\n", current, page);
+
+		for ( ; current < page + getpagesize(); current++  ) {
 
 			index = 0;
 
@@ -66,6 +71,8 @@ unsigned int findpattern ( unsigned char   *pattern,
 				}
 			}
 		}
+
+		current--;
 	}
 
 	signal( SIGSEGV, SIG_DFL );

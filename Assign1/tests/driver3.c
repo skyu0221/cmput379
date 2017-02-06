@@ -1,4 +1,4 @@
-#include "../findpattern.c"
+#include "../findpattern.h"
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <fcntl.h>
