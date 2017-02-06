@@ -32,5 +32,17 @@ Third call findpattern() should return 6 (3 in first 7text and
                                           1 for pattern itself).
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 driver3:
-map a file into memory using mmap(2). Then use mmap(2) to change the mode of the
+Map a file into memory using mmap(2). Then use mmap(2) to change the mode of the
 memory you are mapping to.
+
+First we write a text to a new file called "driver3file". If this file is
+existed, will replace the file. The text contains THREE patterns. Here we will
+do the first findpattern(). Then we will use mmap to map this file into RW, and
+call findpattern() again. Then we will use mmap to change this file into RO, and
+do the third findpattern().
+
+In general
+First call findpattern() should return 7 (3 in buffer 3 in file
+                                          and 1 for pattern itself).
+Second call findpattern() should return 10 (7 before and 3 RW).
+Third call findpattern() should return 10 (7 before and 3 RO).

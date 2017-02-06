@@ -57,7 +57,7 @@ unsigned int findpattern ( unsigned char   *pattern,
 
 				//for ( int i = index; i >= 0; i-- )
 					//printf( "%x | %c | %c\n", current - i, *(char * )(current - i), pattern[index - i] );
-				printf( "%x\n+++\n", current - index );
+				//printf( "%x\n+++\n", current - index );
 
 				if ( counter <= loclength ) {
 
