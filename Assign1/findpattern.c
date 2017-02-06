@@ -63,5 +63,34 @@ unsigned int findpattern ( unsigned char   *pattern,
 			}
 		}
 	}
+
+	signal( SIGSEGV, SIG_DFL );
+	signal( SIGBUS,  SIG_DFL );
 	return counter;
+}
+
+void do_not_care () {
+
+	unsigned int  page    = START_ADDR;
+	unsigned char checker;
+
+	struct sigaction act;
+
+	act.sa_handler = handler;
+	act.sa_flags   = 0;
+	sigemptyset( &act.sa_mask );
+	sigaction( SIGSEGV, &act, 0 );
+	sigaction( SIGBUS,  &act, 0 );
+
+	for ( ; page <= FINAL_ADDR - getpagesize(); page += getpagesize() ) {
+
+		if ( sigsetjmp( env, 1 ) )
+			continue;
+
+		if ( !sigsetjmp( env, 1 ) )
+			*(char *)page = checker;
+	}
+
+	signal( SIGSEGV, SIG_DFL );
+	signal( SIGBUS,  SIG_DFL );
 }
