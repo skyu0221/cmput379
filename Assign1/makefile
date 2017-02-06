@@ -27,4 +27,4 @@ findpattern.o: findpattern.c findpattern.h
 	@$(CC) $(CFLAGS) -c findpattern.c
 
 clean:
-	@rm -rf output *.o && cd tests/ && make clean
+	@rm -rf *.o && cd tests/ && make clean
