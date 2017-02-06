@@ -11,21 +11,27 @@ int main ( int argc, char *argv[] ) {
 
 	unsigned int   return_value, patlength;
 
-	unsigned char *instances = malloc( sizeof( char ) * 50 );
+	unsigned char instances[51], even_more[22];
+
 	struct patmatch *locations = malloc( sizeof( struct patmatch ) * 5 );
-	instances = "Try to test follow: alabula alabull alabulaalabula";
+
+	strcpy( instances, "Try to test follow: alabula alabull" );
 
 	patlength = strlen( argv[1] );
+	memset( locations, 0, sizeof( locations ) );
 	return_value = findpattern( argv[1], patlength, locations, 5 );
-	printf( "%d\n", return_value );
+	printf( "%d | %p\n", return_value, instances );
 
-	instances = realloc( instances, sizeof( char ) * 65 );
-	instances[50] = "alaalabulalbula";
-
+	strcat( instances, " alabulaalabula" );
+	memset( locations, 0, sizeof( locations ) );
 	return_value = findpattern( argv[1], patlength, locations, 5 );
-	printf( "%d\n", return_value );
+	printf( "%d | %p\n", return_value, instances );
 
-	free(instances);
+	strcpy( even_more, "alaalabulalbulalabula" );
+
+	memset( locations, 0, sizeof( locations ) );
+	return_value = findpattern( argv[1], patlength, locations, 5 );
+	printf( "%d | %p\n", return_value, instances );
 
 	return 0;
 }
