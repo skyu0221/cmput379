@@ -55,6 +55,10 @@ unsigned int findpattern ( unsigned char   *pattern,
 			if ( index-- == patlength ) {
 				counter++;
 
+				//for ( int i = index; i >= 0; i-- )
+					//printf( "%x | %c | %c\n", current - i, *(char * )(current - i), pattern[index - i] );
+				printf( "%x\n+++\n", current - index );
+
 				if ( counter <= loclength ) {
 
 					locations[counter - 1].location = current - index;

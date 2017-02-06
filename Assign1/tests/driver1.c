@@ -1,64 +1,27 @@
+#include "../findpattern.c"
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "findpattern.h"
-#include <string.h>
+#include <unistd.h>
 
+int main ( int argc, char *argv[] ) {
 
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+	unsigned int   return_value, patlength;
 
-// https://gcc.gnu.org/onlinedocs/cpp/Stringification.html
-#define STRINGIFY(s) XSTRINGIFY(s)
-#define XSTRINGIFY(s) #s
-#ifndef P
-#define P ""
-#endif
+	unsigned char *instances = malloc( sizeof( char ) * 50 );
 
-int main(int argc, char *argv[]) {
+	struct patmatch *locations = malloc( sizeof( struct patmatch ) * 5 );
 
-    char *pattern = STRINGIFY(P);
-    int loclength = 16, patlength, patterns_found, i;
-    struct patmatch *locations = malloc(sizeof(struct patmatch) * loclength);
-    struct patmatch *loc;
-    patlength = strlen(pattern);
+	instances = "Try to test follow: alabula alabule alabulaalabula";
 
-    printf("Test1\n");
-    printf("Memory modified on the heap using malloc()\n");
+	patlength = strlen( argv[1] );
 
-    printf("Pass 1\n");
+	return_value = findpattern( argv[1], patlength, locations, 5 );
 
-    patterns_found = findpattern(pattern, patlength, locations, loclength);
-    printf("Found %d instances of the pattern.\n", patterns_found);
-   
-    for (loc = locations, i = 0; i < MIN(loclength, patterns_found); i++, loc++)
-    {
-	printf("Pattern found at %.8x, ", loc->location);
-	if (loc->mode == 0)
-		printf("Mode: MEM_RW\n");
-	else
-		printf("Mode: MEM_RO\n");
-    }
+	printf( "%d\n", return_value );
 
-
-    // make changes
-    char *new_instance = malloc(patlength + 1);
-    strcpy(new_instance, pattern);
-    printf("New instance of pattern at %.x\n", (unsigned int) new_instance);
-    
-    printf("Pass 2\n");
-    patterns_found = findpattern(pattern, patlength, locations, loclength);
-    printf("Found %d instances of the pattern.\n", patterns_found);
-
-    // print out where we found the pattern.
-    for (loc = locations, i = 0; i < MIN(loclength, patterns_found); i++, loc++)
-    {
-	printf("Pattern found at %.8x, ", loc->location);
-	if (loc->mode == 0)
-		printf("Mode: MEM_RW\n");
-	else
-		printf("Mode: MEM_RO\n");
-    }
-    free(new_instance);
-    printf("pattern length: %d\n", patlength);
-    
-    exit(0);	
+	return 0;
 }
