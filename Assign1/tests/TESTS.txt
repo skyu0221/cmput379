@@ -23,6 +23,7 @@ This setup is pretty similar to the driver1 but we put values in stack. We use
 memset to initialize two texts to zeros. First put ONE pattern into first text,
 then add TWO more pattern into first text, then put TWO pattern into second
 text.
+Notice for this driver the loclength is 5.
 
 In general
 First call findpattern() should return 2 (1 in text and 1 for pattern itself).
