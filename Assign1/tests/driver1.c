@@ -1,64 +1,120 @@
+#include "../findpattern.h"
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "findpattern.h"
-#include <string.h>
+#include <unistd.h>
 
+#define MIN(a,b) (((a)<(b))?(a):(b))
 
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+int main ( int argc, char *argv[] ) {
 
-// https://gcc.gnu.org/onlinedocs/cpp/Stringification.html
-#define STRINGIFY(s) XSTRINGIFY(s)
-#define XSTRINGIFY(s) #s
-#ifndef P
-#define P ""
-#endif
+	unsigned int   return_value, patlength,
+	               loclength = 10;
+	unsigned char *instances = malloc( sizeof( char ) * 51 );
+	struct patmatch *locations = malloc( sizeof( struct patmatch )
+	                                     * loclength * 3 );
+	strcpy( instances, "Try to test follow: alabula alabull" );
 
-int main(int argc, char *argv[]) {
+	patlength = strlen( argv[1] );
+	memset( locations, 0, sizeof( locations ) );
+	return_value = findpattern( argv[1], patlength, locations, loclength );
 
-    char *pattern = STRINGIFY(P);
-    int loclength = 16, patlength, patterns_found, i;
-    struct patmatch *locations = malloc(sizeof(struct patmatch) * loclength);
-    struct patmatch *loc;
-    patlength = strlen(pattern);
+	printf( "test1\n" );
+	printf( "This is for instances in HEAP.\n" );
+	printf( "\nPass 1\n" );
+	printf( "Total Matches: %u\n", return_value );
 
-    printf("Test1\n");
-    printf("Memory modified on the heap using malloc()\n");
+	for ( unsigned int i = 0; i < MIN( loclength, return_value ); i++ ) {
 
-    printf("Pass 1\n");
+		printf( "0x%.8x\t", locations[i].location );
 
-    patterns_found = findpattern(pattern, patlength, locations, loclength);
-    printf("Found %d instances of the pattern.\n", patterns_found);
-   
-    for (loc = locations, i = 0; i < MIN(loclength, patterns_found); i++, loc++)
-    {
-	printf("Pattern found at %.8x, ", loc->location);
-	if (loc->mode == 0)
-		printf("Mode: MEM_RW\n");
-	else
-		printf("Mode: MEM_RO\n");
-    }
+		if ( locations[i].mode ) printf( "MEM_RO\n" );
+		else printf( "MEM_RW\n" );
+	}
 
+	strcat( instances, " alabulaalabula" );
+	return_value = findpattern(  argv[1], patlength,
+	                            &locations[loclength], loclength );
 
-    // make changes
-    char *new_instance = malloc(patlength + 1);
-    strcpy(new_instance, pattern);
-    printf("New instance of pattern at %.x\n", (unsigned int) new_instance);
-    
-    printf("Pass 2\n");
-    patterns_found = findpattern(pattern, patlength, locations, loclength);
-    printf("Found %d instances of the pattern.\n", patterns_found);
+	printf( "\nPass 2\n" );
+	printf( "Total Matches: %u\n", return_value );
 
-    // print out where we found the pattern.
-    for (loc = locations, i = 0; i < MIN(loclength, patterns_found); i++, loc++)
-    {
-	printf("Pattern found at %.8x, ", loc->location);
-	if (loc->mode == 0)
-		printf("Mode: MEM_RW\n");
-	else
-		printf("Mode: MEM_RO\n");
-    }
-    free(new_instance);
-    printf("pattern length: %d\n", patlength);
-    
-    exit(0);	
+	for ( unsigned int i = 0; i < MIN( loclength, return_value ); i++ ) {
+
+		printf( "0x%.8x\t", locations[i + loclength].location );
+
+		if ( locations[i + loclength].mode )
+			printf( "MEM_RO\t" );
+		else
+			printf( "MEM_RW\t" );
+
+		unsigned int j = 0, end = 0;
+
+		while ( j < loclength && !end ) {
+
+			if ( locations[i + loclength].location != locations[j].location )
+				j++;
+			else {
+
+				if ( locations[i + loclength].mode == locations[j].mode ) {
+					printf( "U\n" );
+					end = 1;
+				} else {
+					printf( "C\n" );
+					end = 1;
+				}
+			}
+		}
+
+		if ( !end )
+			printf( "N\n" );
+	}
+
+	instances = realloc( instances, sizeof( char ) * 72 );
+	strcat( instances, "alaalabulalbulalabula" );
+
+	return_value = findpattern(  argv[1], patlength,
+	                            &locations[ loclength * 2 ], loclength );
+
+	printf( "\nPass 3\n" );
+	printf( "Total Matches: %u\n", return_value );
+
+	for ( unsigned int i = 0; i < MIN( loclength, return_value ); i++ ) {
+
+		printf( "0x%.8x\t", locations[i + loclength * 2].location );
+
+		if ( locations[i + loclength * 2].mode )
+			printf( "MEM_RO\t" );
+		else
+			printf( "MEM_RW\t" );
+
+		unsigned int j = loclength, end = 0;
+
+		while ( j < loclength * 2 && !end ) {
+
+			if ( locations[i + loclength * 2].location !=
+			                                             locations[j].location )
+				j++;
+			else {
+
+				if ( locations[i + loclength * 2].mode == locations[j].mode ) {
+					printf( "U\n" );
+					end = 1;
+				} else {
+					printf( "C\n" );
+					end = 1;
+				}
+			}
+		}
+
+		if ( !end )
+			printf( "N\n" );
+	}
+
+	free(instances);
+
+	return 0;
 }
