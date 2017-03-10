@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
+#include <string.h>
 #define	MY_PORT	2222
 
 /* ---------------------------------------------------------------------
@@ -20,7 +20,7 @@ int main()
 	int	sock, snew, fromlength, number, outnum;
 
 	struct	sockaddr_in	master, from;
-
+	char tempmessage[2048], message[2048];
 
 	sock = socket (AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
@@ -29,6 +29,7 @@ int main()
 	}
 
 	master.sin_family = AF_INET;
+	//127.0.0.1
 	master.sin_addr.s_addr = INADDR_ANY;
 	master.sin_port = htons (MY_PORT);
 
@@ -50,6 +51,7 @@ int main()
 		}
 
         strcpy(tempmessage, "CMPUT379 Whiteboard Server v0\n");
+        //printf(tempmessage);
         send(snew, tempmessage, sizeof(tempmessage), 0);
 
         int n=recv(snew,message,sizeof(message),0);
