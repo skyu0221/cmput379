@@ -1,4 +1,5 @@
-#include <sys/types.h>
+#include "client.h"
+/*#include <sys/types.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -8,8 +9,8 @@
 #include <strings.h>
 
 #define	 MY_PORT  2222
-
-void send_query(int s, FILE *keyfile);
+*/
+//void send_query(int s, FILE *keyfile);
 
 
 /* ---------------------------------------------------------------------
@@ -92,4 +93,35 @@ int main(int argc, char * argv[])
 }
 
 void send_query(int s, FILE * keyfile){
+	char query[10000];
+	printf("entry of whiteboard: \n");
+	fgets(query,sizeof(query),stdin);
+}
+
+void clean_entry(int s){
+
+}
+
+void plaintextEntry(int s){
+
+}
+
+void encryptedEntry(int s, FILE *keyfile){
+
+}
+
+int encrypt(){
+
+}
+
+int decrypt(){
+
+}
+
+char *base64encode(){
+
+}
+
+char *base64decode(){
+	
 }
