@@ -11,6 +11,7 @@
 
 void send_query(int s, FILE *keyfile);
 
+
 /* ---------------------------------------------------------------------
  This is a sample client program for the number server. The client and
  the server need not run on the same machine.
@@ -28,7 +29,7 @@ int main(int argc, char * argv[])
 	}
 
 	int	s, number;
-
+	char greeting[10000], user_choice[5];
 	struct	sockaddr_in	server;
 
 	struct	hostent		*host;
@@ -58,10 +59,37 @@ int main(int argc, char * argv[])
 		exit (1);
 	}
 
-	read (s, &number, sizeof (number));
-	close (s);
-	fprintf (stderr, "Process %d gets number %d\n", getpid (),
-		ntohl (number));
-	sleep (2);
+	recv(s, greeting, sizeof(greeting),0);
+	printf("%s",greeting);
+
+	while(1){
+		printf("Pick an action: \n");
+		printf("1. Send Query\n");
+		printf("2. Update Entry with Encryption\n");
+		printf("3. Update Entry without Encryption\n");
+		printf("4. Clean Entry\n");
+		printf("5. Exit\n");
+
+		fgets(user_choice, sizeof(user_choice),stdin);
+		if(strncmp(user_choice, "1",1)==0){
+			//send query
+		}
+		if(strncmp(user_choice, "2",1)==0){
+			//update with encryption
+		}
+		if(strncmp(user_choice, "3",1)==0){
+			//update without encryption
+		}
+		if(strncmp(user_choice, "4",1)==0){
+			//clean entry
+		}
+		if(strncmp(user_choice, "5",1)==0){
+			close(s);
+			return 1;
+		}
+	}
 	
+}
+
+void send_query(int s, FILE * keyfile){
 }
