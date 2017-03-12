@@ -9,6 +9,8 @@
 
 #define	 MY_PORT  2222
 
+#define BUFFER 999999
+
 /* ---------------------------------------------------------------------
  This is a sample client program for the number server. The client and
  the server need not run on the same machine.
@@ -18,8 +20,8 @@ int main() {
 
 	int	                 sock,
 	                     number;
-	char                 message[999999],
-	                     buff_send[999999] = {0};
+	char                 message[BUFFER],
+	                     buff_send[BUFFER] = {0};
 	struct	sockaddr_in	 serv_addr;
 	struct	hostent		*host;
 
@@ -61,11 +63,20 @@ int main() {
 	while (1) {
 
 		memset( message, 0, sizeof( message ) );
+		memset( buff_send, 0, sizeof( buff_send ) );
 
 		printf( "What is the command: " );
 		scanf( "%s", buff_send );
 
 		write( sock, buff_send, strlen( buff_send ) );
+
+		if ( buff_send[0] == '@' ) {
+
+			memset( buff_send, 0, sizeof( buff_send ) );
+			printf( "What is new string?: " );
+			scanf( "%s", buff_send );
+			write( sock, buff_send, strlen( buff_send ) );
+		}
 
 		while ( strlen( message ) == 0 )
 			read( sock, message, sizeof( message ) );
