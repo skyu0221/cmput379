@@ -6,15 +6,48 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <openssl/evp.h>
+
 
 #define	 MY_PORT  2222
 
 #define BUFFER 999999
 
-/* ---------------------------------------------------------------------
- This is a sample client program for the number server. The client and
- the server need not run on the same machine.
- --------------------------------------------------------------------- */
+int do_crypt() {
+
+	unsigned char outbuf[1024];
+	int outlen, tmplen, i;
+
+	unsigned char key[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,
+	                       0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+	unsigned char iv[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+	char intext[] = "some Crypto Text";
+	EVP_CIPHER_CTX ctx;
+
+	EVP_CIPHER_CTX_init( &ctx );
+	EVP_EncryptInit_ex( &ctx, EVP_aes_256_cbc(), NULL, key, iv );
+
+	if ( !EVP_EncryptUpdate( &ctx, outbuf, &outlen, intext, strlen(intext) ) ) {
+                /* Error */
+		return 0;
+	}
+        /* Buffer passed to EVP_EncryptFinal() must be after data just
+         * encrypted to avoid overwriting it.
+         */
+	if ( !EVP_EncryptFinal_ex( &ctx, outbuf + outlen, &tmplen ) )
+                /* Error */
+		return 0;
+
+	outlen += tmplen;
+	EVP_CIPHER_CTX_cleanup( &ctx );
+
+	for ( i = 0; i <= ( outlen - 1 ); i++ )
+		printf( "%C", outbuf[i] );
+
+	printf("\n");
+
+	return 1;
+}
 
 int main() {
 
