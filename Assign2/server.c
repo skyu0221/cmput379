@@ -19,7 +19,8 @@ int main( int argc, char *argv[] ) {
 	int	               serv_sock,
 	                   clnt_sock,
 	                   opt,
-	                   request_entry;
+	                   request_entry,
+	                   request_length;
     unsigned long long num_entry = 0,
 	                   iterator = 0;
 	bool               read_from_file;
@@ -68,28 +69,27 @@ int main( int argc, char *argv[] ) {
 	} else
 		num_entry = atoi( argv[3] );
 
-	char *entry[num_entry];
+	char entry[num_entry][BUFFER];
 
 	memset( entry, 0, sizeof( entry ) );
 
 	if ( read_from_file ) {
 
 		FILE               *fp;
+		char               *line = NULL;
 		size_t              len = 0;
 
 		fp = fopen( argv[3], "r" );
 
 		for ( ;iterator < num_entry; iterator++ ) {
-			entry[iterator] = NULL;
-			getline( &entry[iterator], &len, fp );
+			getline( &line, &len, fp );
+			strcpy( entry[iterator], line );
 			entry[iterator][strlen( entry[iterator] ) - 1] = '\0';
 		}
 
 		fclose( fp );
 
-	} else
-		for ( ;iterator < num_entry; iterator++ )
-			entry[iterator] = NULL;
+	}
 
 //	serv_sock = socket ( AF_INET, SOCK_STREAM, IPPROTO_TCP );
 	serv_sock = socket ( AF_INET, SOCK_STREAM, 0 );
@@ -160,7 +160,14 @@ int main( int argc, char *argv[] ) {
 			                                     entry[request_entry - 1] );
 		else if ( request[0] == '@' ) {
 
-			strcpy( entry[request_entry - 1], &request[iterator + 1] );
+			request_length = atoi( &request[iterator + 1] );
+			memset( request, 0, sizeof( request ) );
+			while ( strlen( request ) == 0 )
+				read( clnt_sock, request, sizeof(request) );
+			memset( entry[request_entry - 1], 0, 
+			        sizeof( entry[request_entry - 1] ) );
+			printf("%s",request);
+			strncpy( entry[request_entry - 1], request, request_length);
 			sprintf( message, "!%de0\n\n", request_entry );
 		}
 
