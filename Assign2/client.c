@@ -46,7 +46,7 @@ char *base64decode (const void *b64_decode_this, int decode_this_many_bytes){
     return base64_decoded;        //Returns base-64 decoded data with trailing null terminator.
 }
 
-int encoding() {
+int encoding(char *test) {
 
 	unsigned char outbuf[1024];
 	int outlen, tmplen;
@@ -60,7 +60,6 @@ int encoding() {
 	unsigned char intext[200];
 	bzero( intext, 200 );
 	char buffer[200];
-	sprintf( buffer, "Enter a string to be encrypted\n" );
 	write( 1, buffer, strlen( buffer ) );
 	read( 0, intext, 199 );
 	
@@ -85,15 +84,14 @@ int encoding() {
 	
 	//Base-64 encoding.
 	unsigned char *base64_encoded = base64encode( data_to_encode, bytes_to_encode );
-
-	printf("Base-64 encoded string is: %s\n", base64_encoded);
+	strcpy( test, base64_encoded );
 	free(base64_encoded);
 	return 1;
 }
 
-int decoding() {
+int decoding( char *test) {
 
-	unsigned char debuf[1024], result[1024];
+	unsigned char debuf[1024];
 	int delen, tmplen;
 
 	unsigned char key[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,
@@ -110,7 +108,6 @@ int decoding() {
 	read( 0, data_to_decode, 199 );
 	
 	memset( debuf, 0, sizeof( debuf ) );
-	memset( result, 0, sizeof( result ) );
 	
 	data_to_decode[strlen( data_to_decode ) - 1] = 0;
 	
@@ -135,9 +132,7 @@ int decoding() {
 	delen += remainingBytes;
 	EVP_CIPHER_CTX_cleanup(&ctx);
 	
-	strncpy( result, debuf, delen );
-
-	printf("Base-64 decoded string is: %s\n", result);
+	strncpy( test, debuf, delen );
 	free(base64_decoded);
 	return 1;
 }
@@ -145,9 +140,12 @@ int decoding() {
 int main() {
 
 	int	                 sock,
-	                     number;
+	                     number,
+	                     selector;
 	char                 message[BUFFER],
-	                     buff_send[BUFFER] = {0};
+	                     buff_send[BUFFER] = {0},
+	                     buffer[BUFFER],
+	                     encrypt;
 	struct	sockaddr_in	 serv_addr;
 	struct	hostent		*host;
 
@@ -170,10 +168,9 @@ int main() {
 
 	//serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	bzero( &serv_addr, sizeof( serv_addr ) );
-	bcopy( host->h_addr, &( serv_addr.sin_addr ), host->h_length );
-
-	serv_addr.sin_family = host->h_addrtype;
-	serv_addr.sin_port   = htons(MY_PORT);
+	serv_addr.sin_family      = AF_INET;
+	serv_addr.sin_addr.s_addr = inet_addr( "127.0.0.1" );
+	serv_addr.sin_port        = htons( MY_PORT );
 
 	if ( connect( sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr) ) ){
 
@@ -190,24 +187,81 @@ int main() {
 
 		memset( message, 0, sizeof( message ) );
 		memset( buff_send, 0, sizeof( buff_send ) );
-
-		printf( "What is the command: " );
-		scanf( "%s", buff_send );
-
-		write( sock, buff_send, strlen( buff_send ) );
-
-		if ( buff_send[0] == '@' ) {
-
-			memset( buff_send, 0, sizeof( buff_send ) );
-			printf( "What is new string?: " );
-			scanf( "%s", buff_send );
-			write( sock, buff_send, strlen( buff_send ) );
+		
+		printf( "= = = = = = = = = =\n" );
+		
+		printf( "What is the command(1-5):\n" );
+		printf( "1. Check whiteboard(?#\\n)\n" );
+		printf( "2. Update whiteboard with plain text(@#p#\\nMessage\\n)\n" );
+		printf( "3. Update whiteboard with encrypt text(@#c#\\nMessage\\n)\n" );
+		printf( "4. Type in by hand\n" );
+		printf( "5. Exit\n" );
+		
+		scanf( "%d", &selector );
+		
+		while ( selector > 5 || selector < 1 ) {
+		
+			printf( "Illegal choice! Usage (1-4)\n" );
+			scanf( "%d", &selector );
 		}
 
-		while ( strlen( message ) == 0 )
-			read( sock, message, sizeof( message ) );
+		printf( "= = = = = = = = = =\n" );
+
+		if ( selector == 1 ) {
+		
+			memset( buffer, 0, sizeof( buffer ) );
+			printf( "Which entry you want to check?\n" );
+			scanf( "%s", buffer );
+			sprintf( buff_send, "?%s\n", buffer );
+
+		} else if ( selector == 2 ) {
+		
+			char plain[BUFFER];
+			memset( buffer, 0, sizeof( buffer ) );
+			memset( plain, 0, sizeof( plain ) );
+			printf( "Which entry you want to update?\n" );
+			scanf( "%s", buffer );
+			printf( "What content you want to update?\n" );
+			scanf( "%s", plain );
+			sprintf( buff_send, "@%sp%zu\n%s\n", buffer, strlen(plain), plain );
+			
+		} else if ( selector == 3 ) {
+		
+			char plain[BUFFER];
+			memset( buffer, 0, sizeof( buffer ) );
+			memset( plain, 0, sizeof( plain ) );
+			printf( "Which entry you want to update?\n" );
+			scanf( "%s", buffer );
+			printf( "What content you want to update?\n" );
+			encoding( plain );
+			sprintf( buff_send, "@%sc%zu\n%s\n", buffer, strlen(plain), plain );
+		
+		} else if ( selector == 4 ) {
+		
+			printf( "Please type in your own command:\n" );
+			scanf( "%s", buff_send );
+			
+		} else {
+		
+			printf( "Shutting down.\n" );
+			close( sock );
+			printf( "Shutted down.\n" );
+			exit(1);
+		}
+		printf( "= = = = = = = = = =\n" );
+		printf( "Your command is generated:\n-----\n%s-----\n", buff_send );
+
+		send( sock, buff_send, strlen( buff_send ), 0 );
+		
+		printf( "Respond from the server:\n-----\n" );
+
+		while ( strlen( message ) == 0 ){
+			recv( sock, message, sizeof( message ), 0 );
+			printf("%zu",strlen(message));
+		}
 
 		printf( "%s", message );
+		printf( "= = = = = = = = = =\n" );		
 
 		//close( sock );
 	}

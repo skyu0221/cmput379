@@ -91,8 +91,7 @@ int main( int argc, char *argv[] ) {
 
 	}
 
-//	serv_sock = socket ( AF_INET, SOCK_STREAM, IPPROTO_TCP );
-	serv_sock = socket ( AF_INET, SOCK_STREAM, 0 );
+	serv_sock = socket( AF_INET, SOCK_STREAM, 0 );
 
 	if ( serv_sock < 0 ) {
 
@@ -101,7 +100,7 @@ int main( int argc, char *argv[] ) {
 	}
 
 	serv_addr.sin_family      = AF_INET;
-	serv_addr.sin_addr.s_addr = INADDR_ANY;
+	serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	serv_addr.sin_port        = htons( MY_PORT );
 
 	if ( bind( serv_sock, (struct sockaddr*)&serv_addr, sizeof( serv_addr ) ) ){
@@ -110,7 +109,7 @@ int main( int argc, char *argv[] ) {
 		exit(1);
 	}
 
-	listen( serv_sock, 20 );
+	listen( serv_sock, 5 );
 
 	clnt_sock = accept( serv_sock, (struct sockaddr*)&clnt_addr,
 	                    &clnt_addr_size );
@@ -128,14 +127,14 @@ int main( int argc, char *argv[] ) {
 		memset( request, 0, sizeof( request ) );
 		memset( message, 0, sizeof( message ) );
 		memset( request_entry_char, 0, sizeof( request_entry_char ) );
-		read( clnt_sock, request, sizeof(request) );
+		recv( clnt_sock, request, sizeof(request), 0 );
+		
+		printf( "request: %s\n", request );
 
 		if ( request[0] != '?' && request[0] != '@' ) {
 
-			perror( "Server: command not known" );
-			close( clnt_sock );
-			close( serv_sock );
-			exit(1);
+			sprintf( message, "Command illegal" );
+			write( clnt_sock, message, sizeof( message ) );
 		}
 
 		iterator = 1;
@@ -150,7 +149,6 @@ int main( int argc, char *argv[] ) {
 		request_entry_char[iterator - 1] = '\0';
 
 		request_entry = atoi( request_entry_char );
-		printf("here\n");
 
 		if ( request_entry > num_entry || request_entry <= 0 )
 			sprintf( message, "!%de14\nNo such entry!\n", request_entry );
@@ -162,8 +160,6 @@ int main( int argc, char *argv[] ) {
 
 			request_length = atoi( &request[iterator + 1] );
 			memset( request, 0, sizeof( request ) );
-			while ( strlen( request ) == 0 )
-				read( clnt_sock, request, sizeof(request) );
 			memset( entry[request_entry - 1], 0, 
 			        sizeof( entry[request_entry - 1] ) );
 			printf("%s",request);
@@ -171,7 +167,8 @@ int main( int argc, char *argv[] ) {
 			sprintf( message, "!%de0\n\n", request_entry );
 		}
 
-		write( clnt_sock, message, sizeof( message ) );
+		send( clnt_sock, message, sizeof( message ), 0 );
+		printf( "message: %s\n", message );
 
 	}
 
