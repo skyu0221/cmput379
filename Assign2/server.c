@@ -14,8 +14,6 @@
 
 #define BUFFER 999999
 
-
-
 int main( int argc, char *argv[] ) {
 
 
@@ -34,12 +32,14 @@ int main( int argc, char *argv[] ) {
 	ssize_t            reader;
 	socklen_t          clnt_addr_size = sizeof( clnt_addr );
 
+	//  Check the number of arguments
 	if ( argc != 4 ) {
 
 		perror( "Server: Number of arguments are wrong" );
 		exit(1);
 	}
 
+	// check if a statefile is provided or not
 	while ( ( opt = getopt( argc, argv, "fn" ) ) != -1 ) {
 
 		switch ( opt ) {
@@ -52,6 +52,7 @@ int main( int argc, char *argv[] ) {
 		}
 	}
 
+	// if statefile is provided, read the content
 	if ( read_from_file ) {
 
 		FILE               *fp;
@@ -89,7 +90,7 @@ int main( int argc, char *argv[] ) {
 		size_t              len = 0;
 
 		fp = fopen( argv[3], "r" );
-
+		// Also need to read the type (c or p) of the entry.
 		for ( ;iterator < num_entry; iterator++ ) {
 			getline( &line, &len, fp );
 			strcpy( entry[iterator], &line[2] );
@@ -101,6 +102,7 @@ int main( int argc, char *argv[] ) {
 
 	}
 
+	// Prepare for the connection.
 	serv_sock = socket( AF_INET, SOCK_STREAM, 0 );
 
 	if ( serv_sock < 0 ) {
@@ -125,7 +127,7 @@ int main( int argc, char *argv[] ) {
 	                    &clnt_addr_size );
 
 	char message[BUFFER] = {0};
-
+	// for the connection, give a greeting message
 	sprintf( message, "CMPUT379 Whiteboard Server v0\n%lld\n", num_entry );
 
 	char request[BUFFER], request_entry_char[BUFFER];
@@ -133,14 +135,14 @@ int main( int argc, char *argv[] ) {
 	write( clnt_sock, message, sizeof( message ) );
 
 	while ( true ) {
-
+		// memset to all file
 		memset( request, 0, sizeof( request ) );
 		memset( message, 0, sizeof( message ) );
 		memset( request_entry_char, 0, sizeof( request_entry_char ) );
 		recv( clnt_sock, request, sizeof(request), 0 );
 		
 		printf( "request: %s\n", request );
-
+		// check illegal request
 		if ( request[0] != '?' && request[0] != '@' ) {
 
 			sprintf( message, "Command illegal" );
@@ -148,7 +150,7 @@ int main( int argc, char *argv[] ) {
 		}
 
 		iterator = 1;
-
+		// read the entry number
 		while ( request[iterator] != '\0' && request[iterator] != 'p' &&
 		                                     request[iterator] != 'c' ) {
 
@@ -157,9 +159,9 @@ int main( int argc, char *argv[] ) {
 		}
 
 		request_entry_char[iterator - 1] = '\0';
-
+		// read the entry number, convert to int
 		request_entry = atoi( request_entry_char );
-
+		// check if the entry is legal
 		if ( request_entry > num_entry || request_entry <= 0 )
 			sprintf( message, "!%de14\nNo such entry!\n", request_entry );
 		else if ( request[0] == '?' )
@@ -168,13 +170,13 @@ int main( int argc, char *argv[] ) {
 			                             strlen( entry[request_entry - 1] ),
 			                                     entry[request_entry - 1] );
 		else if ( request[0] == '@' ) {
-
+			//get the type of new entry
 			type[request_entry - 1] = request[iterator];
 			iterator++;
 			
 			char temp[BUFFER] = {0};
 			int  temp_i       = 0;
-			
+			//get the length of entry if gonna update the entry
 			while ( request[iterator] != '\n' ) {
 
 				temp[temp_i] = request[iterator];
@@ -183,18 +185,18 @@ int main( int argc, char *argv[] ) {
 			}
 			
 			temp[temp_i] = '\0';
-
+			// get the length to int
 			request_length = atoi( temp );
 			
 			iterator++;
 			
 			memset( entry[request_entry - 1], 0, 
 			        sizeof( entry[request_entry - 1] ) );
-
+			// get content
 			strncpy( entry[request_entry - 1], &request[iterator], request_length);
 			sprintf( message, "!%de0\n\n", request_entry );
 		}
-
+		// give respond
 		send( clnt_sock, message, strlen( message ), 0 );
 		printf( "message: %s\n%zu\n", message, strlen( message ) );
 

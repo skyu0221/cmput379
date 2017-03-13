@@ -21,7 +21,7 @@ struct enncodingkey {
 };
 
 struct  enncodingkey default_keys;
-
+// copyed from eclass
 char *base64encode (const void *b64_encode_this, int encode_this_many_bytes){
     BIO *b64_bio, *mem_bio;      //Declares two OpenSSL BIOs: a base64 filter and a memory BIO.
     BUF_MEM *mem_bio_mem_ptr;    //Pointer to a "memory BIO" structure holding our base64 data.
@@ -38,7 +38,7 @@ char *base64encode (const void *b64_encode_this, int encode_this_many_bytes){
     (*mem_bio_mem_ptr).data[(*mem_bio_mem_ptr).length] = '\0';  //Adds null-terminator to tail.
     return (*mem_bio_mem_ptr).data; //Returns base-64 encoded data. (See: "buf_mem_st" struct).
 }
-
+// copyed from eclass
 char *base64decode (const void *b64_decode_this, int decode_this_many_bytes){
     BIO *b64_bio, *mem_bio;      //Declares two OpenSSL BIOs: a base64 filter and a memory BIO.
     char *base64_decoded = calloc( (decode_this_many_bytes*3)/4+1, sizeof(char) ); //+1 = null.
@@ -54,7 +54,7 @@ char *base64decode (const void *b64_decode_this, int decode_this_many_bytes){
     BIO_free_all(b64_bio);  //Destroys all BIOs in chain, starting with b64 (i.e. the 1st one).
     return base64_decoded;        //Returns base-64 decoded data with trailing null terminator.
 }
-
+// copyed from eclass
 int encoding(char* request, char *test) {
 
 	unsigned char outbuf[BUFFER];
@@ -91,7 +91,7 @@ int encoding(char* request, char *test) {
 	free(base64_encoded);
 	return 1;
 }
-
+// copyed from eclass
 int decoding( char* request, char *test ) {
 
 	unsigned char debuf[1024];
@@ -147,7 +147,7 @@ int main( int argc, char *argv[] ) {
 	struct  enncodingkey default_keys;
 	struct	sockaddr_in	 serv_addr;
 	struct	hostent		*host;
-	
+	// set default key if key file is provided
 	if ( argc == 4 ) {
 
 		FILE *fp;
@@ -161,7 +161,7 @@ int main( int argc, char *argv[] ) {
 		strcpy( default_keys.key, &line[4] );
 		strcpy( default_keys.iv, &line[4] );
 	}
-
+	// get link
 	host = gethostbyname( "localhost" );
 
 	if ( host == NULL ) {
@@ -190,14 +190,14 @@ int main( int argc, char *argv[] ) {
 		perror( "Client: cannot connect to server" );
 		exit(1);
 	}
-
+	// wait for the greeting message
 	while ( strlen( message ) == 0  )
 		recv( sock, message, sizeof( message ), 0 );
 
 	printf( "%s", message );
 
 	while (1) {
-
+		// User interface for user to work with
 		memset( message, 0, sizeof( message ) );
 		memset( buff_send, 0, sizeof( buff_send ) );
 		
@@ -221,14 +221,14 @@ int main( int argc, char *argv[] ) {
 		printf( "= = = = = = = = = =\n" );
 
 		if ( selector == 1 ) {
-		
+			// look for entry
 			memset( buffer, 0, sizeof( buffer ) );
 			printf( "Which entry you want to check?\n" );
 			scanf( "%s", buffer );
 			sprintf( buff_send, "?%s\n", buffer );
 
 		} else if ( selector == 2 ) {
-		
+			// change entry with plain text
 			char plain[BUFFER];
 			memset( buffer, 0, sizeof( buffer ) );
 			memset( plain, 0, sizeof( plain ) );
@@ -239,7 +239,7 @@ int main( int argc, char *argv[] ) {
 			sprintf( buff_send, "@%sp%zu\n%s\n", buffer, strlen(plain), plain );
 			
 		} else if ( selector == 3 ) {
-		
+			// change entry with encrypt content if key file provided
 			if ( argc != 4 ) {
 				printf( "No key file provided. Cannot encode.\n" );
 				continue;
@@ -262,12 +262,13 @@ int main( int argc, char *argv[] ) {
 			
 
 		} else {
-		
+			// end the connection
 			printf( "Shutting down.\n" );
 			close( sock );
 			printf( "Shutted down.\n" );
 			exit(1);
 		}
+		// let user know what command they did
 		printf( "= = = = = = = = = =\n" );
 		printf( "Your command is generated:\n-----\n%s-----\n", buff_send );
 
@@ -275,7 +276,7 @@ int main( int argc, char *argv[] ) {
 		
 		printf( "Respond from the server:\n-----\n" );
 
-
+		// get response from the server
 		read( sock, message, BUFFER );
 
 
