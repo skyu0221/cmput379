@@ -13,6 +13,15 @@
 
 #define BUFFER 999999
 
+struct enncodingkey {
+
+	unsigned char salt[16];
+	unsigned char key[64];
+	unsigned char iv[32];
+};
+
+struct  enncodingkey default_keys;
+
 char *base64encode (const void *b64_encode_this, int encode_this_many_bytes){
     BIO *b64_bio, *mem_bio;      //Declares two OpenSSL BIOs: a base64 filter and a memory BIO.
     BUF_MEM *mem_bio_mem_ptr;    //Pointer to a "memory BIO" structure holding our base64 data.
@@ -46,27 +55,21 @@ char *base64decode (const void *b64_decode_this, int decode_this_many_bytes){
     return base64_decoded;        //Returns base-64 decoded data with trailing null terminator.
 }
 
-int encoding(char *test) {
+int encoding(char* request, char *test) {
 
-	unsigned char outbuf[1024];
+	unsigned char outbuf[BUFFER];
 	int outlen, tmplen;
-
-	unsigned char key[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,
-	                       0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
- 
-	unsigned char iv[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 	EVP_CIPHER_CTX ctx;
 
-	unsigned char intext[200];
-	bzero( intext, 200 );
-	char buffer[200];
-	write( 1, buffer, strlen( buffer ) );
-	read( 0, intext, 199 );
+	unsigned char intext[BUFFER];
+	bzero( intext, BUFFER );
+	
+	strcpy( intext, request );
 	
 	intext[strlen( intext ) - 1] = 0;
 
 	EVP_CIPHER_CTX_init(&ctx);
-	EVP_EncryptInit_ex(&ctx, EVP_aes_256_cbc(), NULL, key, iv);
+	EVP_EncryptInit_ex(&ctx, EVP_aes_256_cbc(), NULL, default_keys.key, default_keys.iv);
 
 	if(!EVP_EncryptUpdate(&ctx, outbuf, &outlen, intext, strlen(intext)))
 		return 0;
@@ -89,15 +92,10 @@ int encoding(char *test) {
 	return 1;
 }
 
-int decoding( char *test) {
+int decoding( char* request, char *test ) {
 
 	unsigned char debuf[1024];
 	int delen, tmplen;
-
-	unsigned char key[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,
-	                       0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
- 
-	unsigned char iv[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 	EVP_CIPHER_CTX ctx;
 
 	unsigned char data_to_decode[200];
@@ -119,7 +117,7 @@ int decoding( char *test) {
 	delen = strlen(base64_decoded);
 
 	EVP_CIPHER_CTX_init(&ctx);
-	EVP_DecryptInit_ex(&ctx, EVP_aes_256_cbc(), NULL, key, iv);
+	EVP_DecryptInit_ex(&ctx, EVP_aes_256_cbc(), NULL, default_keys.key, default_keys.iv);
     
 	if(!EVP_DecryptUpdate(&ctx, debuf, &delen, base64_decoded, delen))
 		return 0;
@@ -137,7 +135,7 @@ int decoding( char *test) {
 	return 1;
 }
 
-int main() {
+int main( int argc, char *argv[] ) {
 
 	int	                 sock,
 	                     number,
@@ -146,8 +144,23 @@ int main() {
 	                     buff_send[BUFFER] = {0},
 	                     buffer[BUFFER],
 	                     encrypt;
+	struct  enncodingkey default_keys;
 	struct	sockaddr_in	 serv_addr;
 	struct	hostent		*host;
+	
+	if ( argc == 4 ) {
+
+		FILE *fp;
+		ssize_t reader;
+		char *line = NULL;
+		size_t len = 0;
+		
+		fp = fopen( argv[3], "r" );
+		getline( &line, &len, fp );
+		strcpy( default_keys.salt, &line[5] );
+		strcpy( default_keys.key, &line[4] );
+		strcpy( default_keys.iv, &line[4] );
+	}
 
 	host = gethostbyname( "localhost" );
 
@@ -169,8 +182,8 @@ int main() {
 	//serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	bzero( &serv_addr, sizeof( serv_addr ) );
 	serv_addr.sin_family      = AF_INET;
-	serv_addr.sin_addr.s_addr = inet_addr( "127.0.0.1" );
-	serv_addr.sin_port        = htons( MY_PORT );
+	serv_addr.sin_addr.s_addr = inet_addr( argv[1] );
+	serv_addr.sin_port        = htons( atoi(argv[2]) );
 
 	if ( connect( sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr) ) ){
 
@@ -227,20 +240,27 @@ int main() {
 			
 		} else if ( selector == 3 ) {
 		
-			char plain[BUFFER];
+			if ( argc != 4 ) {
+				printf( "No key file provided. Cannot encode.\n" );
+				continue;
+			}
+			char plain[BUFFER], encode[BUFFER];
 			memset( buffer, 0, sizeof( buffer ) );
 			memset( plain, 0, sizeof( plain ) );
+			memset( encode, 0, sizeof( encode ) );
 			printf( "Which entry you want to update?\n" );
 			scanf( "%s", buffer );
 			printf( "What content you want to update?\n" );
-			encoding( plain );
-			sprintf( buff_send, "@%sc%zu\n%s\n", buffer, strlen(plain), plain );
+			scanf( "%s", plain );
+			encoding( plain, encode );
+			sprintf( buff_send, "@%sc%zu\n%s\n", buffer, strlen(encode), encode );
 		
 		} else if ( selector == 4 ) {
 		
 			printf( "Please type in your own command:\n" );
 			scanf( "%s", buff_send );
 			
+
 		} else {
 		
 			printf( "Shutting down.\n" );
@@ -255,10 +275,9 @@ int main() {
 		
 		printf( "Respond from the server:\n-----\n" );
 
-		while ( strlen( message ) == 0 ){
-			recv( sock, message, sizeof( message ), 0 );
-			printf("%zu",strlen(message));
-		}
+
+		read( sock, message, BUFFER );
+
 
 		printf( "%s", message );
 		printf( "= = = = = = = = = =\n" );		

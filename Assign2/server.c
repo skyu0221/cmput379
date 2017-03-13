@@ -8,10 +8,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <netdb.h>
+#include <signal.h>
 
 #define	MY_PORT	2222
 
 #define BUFFER 999999
+
+
 
 int main( int argc, char *argv[] ) {
 
@@ -20,7 +23,9 @@ int main( int argc, char *argv[] ) {
 	                   clnt_sock,
 	                   opt,
 	                   request_entry,
-	                   request_length;
+	                   request_length,
+	                   test1 = 0,
+	                   test2 = 0;
     unsigned long long num_entry = 0,
 	                   iterator = 0;
 	bool               read_from_file;
@@ -67,11 +72,15 @@ int main( int argc, char *argv[] ) {
 		fclose( fp );
 
 	} else
-		num_entry = atoi( argv[3] );
+		test2 = atoi( argv[3] );
+		
+	test1 = test2 + num_entry;
 
 	char entry[num_entry][BUFFER];
+	char type[num_entry];
 
 	memset( entry, 0, sizeof( entry ) );
+	memset( type, 0, sizeof( type ) );
 
 	if ( read_from_file ) {
 
@@ -83,7 +92,8 @@ int main( int argc, char *argv[] ) {
 
 		for ( ;iterator < num_entry; iterator++ ) {
 			getline( &line, &len, fp );
-			strcpy( entry[iterator], line );
+			strcpy( entry[iterator], &line[2] );
+			type[iterator] = line[0];
 			entry[iterator][strlen( entry[iterator] ) - 1] = '\0';
 		}
 
@@ -101,14 +111,14 @@ int main( int argc, char *argv[] ) {
 
 	serv_addr.sin_family      = AF_INET;
 	serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-	serv_addr.sin_port        = htons( MY_PORT );
+	serv_addr.sin_port        = htons( atoi( argv[2] ) );
 
 	if ( bind( serv_sock, (struct sockaddr*)&serv_addr, sizeof( serv_addr ) ) ){
 
 		perror( "Server: cannot bind master socket" );
 		exit(1);
 	}
-
+	while ( true ) {
 	listen( serv_sock, 5 );
 
 	clnt_sock = accept( serv_sock, (struct sockaddr*)&clnt_addr,
@@ -153,27 +163,46 @@ int main( int argc, char *argv[] ) {
 		if ( request_entry > num_entry || request_entry <= 0 )
 			sprintf( message, "!%de14\nNo such entry!\n", request_entry );
 		else if ( request[0] == '?' )
-			sprintf( message, "!%dp%d\n%s\n", request_entry,
+			sprintf( message, "!%d%c%d\n%s\n", request_entry,
+			                                      type[request_entry - 1],
 			                             strlen( entry[request_entry - 1] ),
 			                                     entry[request_entry - 1] );
 		else if ( request[0] == '@' ) {
 
-			request_length = atoi( &request[iterator + 1] );
-			memset( request, 0, sizeof( request ) );
+			type[request_entry - 1] = request[iterator];
+			iterator++;
+			
+			char temp[BUFFER] = {0};
+			int  temp_i       = 0;
+			
+			while ( request[iterator] != '\n' ) {
+
+				temp[temp_i] = request[iterator];
+				iterator++;
+				temp_i++;
+			}
+			
+			temp[temp_i] = '\0';
+
+			request_length = atoi( temp );
+			
+			iterator++;
+			
 			memset( entry[request_entry - 1], 0, 
 			        sizeof( entry[request_entry - 1] ) );
-			printf("%s",request);
-			strncpy( entry[request_entry - 1], request, request_length);
+
+			strncpy( entry[request_entry - 1], &request[iterator], request_length);
 			sprintf( message, "!%de0\n\n", request_entry );
 		}
 
-		send( clnt_sock, message, sizeof( message ), 0 );
-		printf( "message: %s\n", message );
+		send( clnt_sock, message, strlen( message ), 0 );
+		printf( "message: %s\n%zu\n", message, strlen( message ) );
 
 	}
 
 	close( clnt_sock );
 	close( serv_sock );
+	}
 
 	return 0;
 }
