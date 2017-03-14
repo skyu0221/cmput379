@@ -21,6 +21,7 @@ struct enncodingkey {
 };
 
 struct  enncodingkey default_keys;
+/*
 // copyed from eclass
 char *base64encode (const void *b64_encode_this, int encode_this_many_bytes){
     BIO *b64_bio, *mem_bio;      //Declares two OpenSSL BIOs: a base64 filter and a memory BIO.
@@ -134,7 +135,7 @@ int decoding( char* request, char *test ) {
 	free(base64_decoded);
 	return 1;
 }
-
+*/
 int main( int argc, char *argv[] ) {
 
 	int	                 sock,
@@ -252,7 +253,7 @@ int main( int argc, char *argv[] ) {
 			scanf( "%s", buffer );
 			printf( "What content you want to update?\n" );
 			scanf( "%s", plain );
-			encoding( plain, encode );
+			//encoding( plain, encode );
 			sprintf( buff_send, "@%sc%zu\n%s\n", buffer, strlen(encode), encode );
 		
 		} else if ( selector == 4 ) {
