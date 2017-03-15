@@ -11,9 +11,12 @@
 #include <signal.h>
 #include <pthread.h>
 #include <sys/stat.h>
+#include <ctype.h>
 
 #define	MY_PORT	2222
 #define BUFFER 999999
+
+#define MAX(a,b) (((a)>(b))?(a):(b))
 
 // entry information
 char               **entry;
@@ -21,21 +24,22 @@ char                *type;
 sigset_t             mask,
                      default_mask;
 unsigned long long   num_entry = 0,
-                     iterator = 0;
-int	               serv_sock,
-                   opt,
-                   request_entry,
-                   request_length,
-                   test1 = 0,
-                   test2 = 0;
-pid_t              pid = 0;
-pid_t              sid = 0;
-bool               read_from_file;
-struct sockaddr_in serv_addr,
-                   clnt_addr;
-ssize_t            reader;
-socklen_t          clnt_addr_size = sizeof( clnt_addr );
-pthread_t          tid;
+                     iterator = 0,
+                     line_counter = 0;
+int	                 serv_sock,
+                     opt,
+                     request_entry,
+                     request_length,
+                     test1 = 0,
+                     test2 = 0;
+pid_t                pid = 0;
+pid_t                sid = 0;
+bool                 read_from_file;
+struct sockaddr_in   serv_addr,
+                     clnt_addr;
+ssize_t              reader;
+socklen_t            clnt_addr_size = sizeof( clnt_addr );
+pthread_t            tid;
 
 
 // handle SIGTERM. want to save all value and free all memory and quit
@@ -62,7 +66,8 @@ void handler ( int sig ) {
 	// recode current entries
 	for ( iterator = 0; iterator < num_entry; iterator++ ) {
 
-		fprintf( fp, "%c %s\n", type[iterator], entry[iterator] );
+		fprintf( fp, "!%lld%c%zu\n%s\n", iterator + 1, type[iterator],
+		                           strlen( entry[iterator] ), entry[iterator] );
 		free( entry[iterator] );
 	}
 
@@ -150,7 +155,8 @@ void *process_message( void *vargp ) {
 			memset( entry[request_entry - 1], 0, 
 					sizeof( entry[request_entry - 1] ) );
 			// get content
-			temp_content = realloc( entry[request_entry - 1], request_length *sizeof( char ) );
+			free( entry[request_entry - 1] );
+			temp_content = malloc( request_length *sizeof( char ) );
 			strncpy( temp_content, &request[iterator], request_length );
 			entry[request_entry - 1] = temp_content;
 			sprintf( message, "!%de0\n\n", request_entry );
@@ -208,10 +214,13 @@ int main( int argc, char *argv[]) {
 	// if statefile is provided, read the content
 	if ( read_from_file ) {
 
-		FILE               *fp;
-		char               *line = NULL,
-		                   *temp_content;
-		size_t              len = 0;
+		FILE   *fp;
+		char   *line = NULL,
+		       *temp_content,
+		       *entry_number,
+		        temp_type;
+		size_t  len = 0;
+		bool    might_new = true;
 
 		fp = fopen( argv[3], "r" );
 
@@ -223,20 +232,80 @@ int main( int argc, char *argv[]) {
 
 		while ( ( reader = getline( &line, &len, fp ) ) != -1 ) {
 
-			if ( num_entry == 0 ) {
-				entry = malloc( sizeof( char* ) );
-				type = (char*) malloc( sizeof( char ) );
+			if ( line[0] == '!' ) {
+
+				iterator = 1;
+				request_entry = 0;
+
+				while ( isdigit( line[iterator] ) ) {
+					request_entry++;
+					iterator++;
+				}
+
+				if ( request_entry == 0 )
+					might_new = false;
+				else {
+
+				entry_number = malloc( request_entry * sizeof( char ) );
+				strncpy( entry_number, &line[iterator - request_entry], request_entry );
+
+				request_entry = atoi( entry_number );
+				free( entry_number );
+
+				if ( line[iterator] != 'c' && line[iterator] != 'p' )
+					might_new = false;
+				else {
+
+				temp_type = line[iterator++];
+				request_length = 0;
+
+				while ( isdigit( line[iterator] ) ) {
+					request_length++;
+					iterator++;
+				}
+
+				if ( request_length == 0 )
+					might_new = false;
+				else
+
+				request_length = atoi( &line[iterator - request_length] );
+				}
+				}
+			} else
+				might_new = false;
+
+			if ( might_new ) {
+
+				if ( num_entry == 0 ) {
+					entry = malloc( request_entry * sizeof( char* ) );
+					type = (char*) malloc( request_entry * sizeof( char ) );
+				} else {
+
+					if ( num_entry < request_entry ) {
+						entry = realloc( entry, request_entry * sizeof( char* ) );
+						type = realloc( type, request_entry * sizeof( char ) );
+					}
+				}
+				entry[request_entry - 1] = malloc( request_length * sizeof( char ) );
+				type[request_entry - 1] = temp_type;
+				printf( "%c", type[request_entry-1] );
+				num_entry = MAX( num_entry, request_entry );
+				might_new = false;
+				iterator = 0;
+			} else {
+				printf( "%s", line );
+				line_counter = 0;
+				while ( iterator != request_length && 
+				        line[line_counter] != '\n' ) {
+					printf( "Adding...\n" );
+					entry[request_entry - 1][iterator++] = line[line_counter++];
+					printf( "%s\n", entry[request_entry - 1] );
+				}
+				if ( iterator != request_length )
+					entry[request_entry - 1][iterator++] = '\n';
+				else
+					might_new = true;
 			}
-			else {
-				entry = realloc( entry, ( num_entry + 1 ) * sizeof( char* ) );
-				type = realloc( type, ( num_entry + 1 ) * sizeof( char ) );
-			}
-			temp_content = malloc( strlen( &line[2] ) *sizeof( char ) );
-			strcpy( temp_content, &line[2] );
-			type[num_entry] = line[0];
-			entry[num_entry] = temp_content;
-			entry[num_entry][strlen( entry[num_entry] ) - 1] = '\0';
-			num_entry++;
 		}
 
 		fclose( fp );

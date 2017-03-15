@@ -2,16 +2,19 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 
 #define	 MY_PORT  2222
 
 #define BUFFER 999999
+#define MIN(a,b) (((a)<(b))?(a):(b))
 
 struct enncodingkey {
 
@@ -21,7 +24,7 @@ struct enncodingkey {
 };
 
 struct  enncodingkey default_keys;
-/*
+
 // copyed from eclass
 char *base64encode (const void *b64_encode_this, int encode_this_many_bytes){
     BIO *b64_bio, *mem_bio;      //Declares two OpenSSL BIOs: a base64 filter and a memory BIO.
@@ -135,19 +138,22 @@ int decoding( char* request, char *test ) {
 	free(base64_decoded);
 	return 1;
 }
-*/
+
 int main( int argc, char *argv[] ) {
 
-	int	                 sock,
-	                     number,
-	                     selector;
-	char                 message[BUFFER],
-	                     buff_send[BUFFER] = {0},
-	                     buffer[BUFFER],
-	                     encrypt;
-	struct  enncodingkey default_keys;
-	struct	sockaddr_in	 serv_addr;
-	struct	hostent		*host;
+	int	                  sock,
+	                      number,
+	                      selector,
+	                      input_length,
+	                      current;
+	char                  message[BUFFER],
+	                      buff_send[BUFFER] = {0},
+	                      buffer[BUFFER],
+	                      encrypt;
+	bool                  user_length = false;
+	struct  enncodingkey  default_keys;
+	struct	sockaddr_in	  serv_addr;
+	struct	hostent		 *host;
 	// set default key if key file is provided
 	if ( argc == 4 ) {
 
@@ -215,7 +221,7 @@ int main( int argc, char *argv[] ) {
 		
 		while ( selector > 5 || selector < 1 ) {
 		
-			printf( "Illegal choice! Usage (1-4)\n" );
+			printf( "Illegal choice! Usage (1-5)\n" );
 			scanf( "%d", &selector );
 		}
 
@@ -230,31 +236,213 @@ int main( int argc, char *argv[] ) {
 
 		} else if ( selector == 2 ) {
 			// change entry with plain text
-			char plain[BUFFER];
+			char plain[BUFFER], length_ptr[BUFFER], input_line[BUFFER];
+			bool finish = false;
 			memset( buffer, 0, sizeof( buffer ) );
 			memset( plain, 0, sizeof( plain ) );
+			memset( length_ptr, 0, sizeof( length_ptr ) );
 			printf( "Which entry you want to update?\n" );
 			scanf( "%s", buffer );
-			printf( "What content you want to update?\n" );
-			scanf( "%s", plain );
+
+			printf( "\nHow do you like to input the content?\n" );
+			printf( "1. By type in terminal\n" );
+			printf( "2. By file\n" );
+			scanf( "%d", &selector );
+
+			while ( selector > 2 || selector < 1 ) {
+		
+				printf( "Illegal choice! Usage (1,2)\n" );
+				scanf( "%d", &selector );
+			}
+
+			printf( "\nDo you want to specific the length of input content?\n");
+			printf( "Default is the whole input content.\n" );
+			printf( "Will be MIN( len(content), user setting )\n" );
+			printf( "Type in -1 for default. Number for length.\n" );
+
+			scanf( "%s", length_ptr );
+
+			if ( length_ptr[0] != '-' ) {
+				input_length = atoi( length_ptr );
+				user_length = true;
+			} else
+				user_length = false;
+
+			if ( selector == 1 )
+				if ( user_length ) {
+					printf( "\nWhat content you want to update?\n" );
+					while ( input_length > 0 ) {
+						memset( input_line, 0, sizeof( input_line ) );
+						scanf( "%s", input_line );
+						if ( input_length > 0 ) {
+							strncat( plain, input_line, 
+							        MIN( strlen( input_line ), input_length ) );
+							current = current + strlen( input_line );
+							input_length = input_length - strlen( input_line );
+						}
+						if ( input_length > 0 ) {
+							strcat( plain, "\n" );
+							input_length--;
+						}
+					}
+					plain[current] = '\0';
+				} else {
+					while ( !finish ) {
+						memset( input_line, 0, sizeof( input_line ) );
+						printf( "\nWhat content you want to update?\n" );
+						scanf( "%s", input_line );
+						strcat( plain, input_line );
+						printf( "\nDo you want to continue the input?\n" );
+						printf( "1. Yes - 2. No\n" );
+						scanf( "%d", &selector );
+						while ( selector > 2 || selector < 1 ) {
+		
+							printf( "Illegal choice! Usage (1,2)\n" );
+							scanf( "%d", &selector );
+						}
+						if ( selector == 1 )
+							strcat( plain, "\n" );
+						else if ( selector == 2 )
+							finish = true;
+					}
+					strcat( plain, "\0" );
+				}
+			else if ( selector == 2 ) {
+
+				memset( input_line, 0, sizeof( input_line ) );
+				printf( "\nWhat is the file name?\n" );
+				scanf( "%s", input_line );
+
+				FILE   *fp;
+				char   *line = NULL,
+					   *temp_content;
+				size_t  len = 0;
+
+				fp = fopen( input_line, "r" );
+
+				if ( fp == NULL ) {
+					printf( "Cannot find the file\n" );
+					continue;
+				}
+				memset( input_line, 0, sizeof( input_line ) );
+				while ( getline( &line, &len, fp ) != -1 )
+					strcat( input_line, line );
+
+				if ( user_length )
+					strncpy( plain, input_line,
+					         MIN( input_length, strlen( input_line ) ) );
+				else {
+					strcpy( plain, input_line );
+					plain[strlen(plain) - 1] = '\0';
+				}
+			}
 			sprintf( buff_send, "@%sp%zu\n%s\n", buffer, strlen(plain), plain );
 			
 		} else if ( selector == 3 ) {
 			// change entry with encrypt content if key file provided
-			if ( argc != 4 ) {
-				printf( "No key file provided. Cannot encode.\n" );
-				continue;
-			}
-			char plain[BUFFER], encode[BUFFER];
+			char plain[BUFFER], length_ptr[BUFFER],
+			     input_line[BUFFER], encode[BUFFER];
+			bool finish = false;
 			memset( buffer, 0, sizeof( buffer ) );
 			memset( plain, 0, sizeof( plain ) );
-			memset( encode, 0, sizeof( encode ) );
+			memset( length_ptr, 0, sizeof( length_ptr ) );
 			printf( "Which entry you want to update?\n" );
 			scanf( "%s", buffer );
-			printf( "What content you want to update?\n" );
-			scanf( "%s", plain );
+
+			printf( "\nHow do you like to input the content?\n" );
+			printf( "1. By type in terminal\n" );
+			printf( "2. By file\n" );
+			scanf( "%d", &selector );
+
+			while ( selector > 2 || selector < 1 ) {
+		
+				printf( "Illegal choice! Usage (1,2)\n" );
+				scanf( "%d", &selector );
+			}
+
+			printf( "\nDo you want to specific the length of input content?\n");
+			printf( "Default is the whole input content.\n" );
+			printf( "Will be MIN( len(content), user setting )\n" );
+			printf( "Type in -1 for default. Number for length.\n" );
+
+			scanf( "%s", length_ptr );
+
+			if ( length_ptr[0] != '-' ) {
+				input_length = atoi( length_ptr );
+				user_length = true;
+			} else
+				user_length = false;
+
+			if ( selector == 1 )
+				if ( user_length ) {
+					printf( "\nWhat content you want to update?\n" );
+					while ( input_length > 0 ) {
+						memset( input_line, 0, sizeof( input_line ) );
+						scanf( "%s", input_line );
+						if ( input_length > 0 ) {
+							strncat( plain, input_line, 
+							        MIN( strlen( input_line ), input_length ) );
+							current = current + strlen( input_line );
+							input_length = input_length - strlen( input_line );
+						}
+						if ( input_length > 0 ) {
+							strcat( plain, "\n" );
+							input_length--;
+						}
+					}
+					plain[current] = '\0';
+				} else {
+					while ( !finish ) {
+						memset( input_line, 0, sizeof( input_line ) );
+						printf( "\nWhat content you want to update?\n" );
+						scanf( "%s", input_line );
+						strcat( plain, input_line );
+						printf( "\nDo you want to continue the input?\n" );
+						printf( "1. Yes - 2. No\n" );
+						scanf( "%d", &selector );
+						while ( selector > 2 || selector < 1 ) {
+		
+							printf( "Illegal choice! Usage (1,2)\n" );
+							scanf( "%d", &selector );
+						}
+						if ( selector == 1 )
+							strcat( plain, "\n" );
+						else if ( selector == 2 )
+							finish = true;
+					}
+					strcat( plain, "\0" );
+				}
+			else if ( selector == 2 ) {
+
+				memset( input_line, 0, sizeof( input_line ) );
+				printf( "\nWhat is the file name?\n" );
+				scanf( "%s", input_line );
+
+				FILE   *fp;
+				char   *line = NULL,
+					   *temp_content;
+				size_t  len = 0;
+
+				fp = fopen( input_line, "r" );
+
+				if ( fp == NULL ) {
+					printf( "Cannot find the file\n" );
+					continue;
+				}
+				memset( input_line, 0, sizeof( input_line ) );
+				while ( getline( &line, &len, fp ) != -1 )
+					strcat( input_line, line );
+
+				if ( user_length )
+					strncpy( plain, input_line,
+					         MIN( input_length, strlen( input_line ) ) );
+				else {
+					strcpy( plain, input_line );
+					plain[strlen(plain) - 1] = '\0';
+				}
+			}
 			//encoding( plain, encode );
-			sprintf( buff_send, "@%sc%zu\n%s\n", buffer, strlen(encode), encode );
+			sprintf( buff_send, "@%sc%zu\n%s\n", buffer, strlen( encode ), encode );
 		
 		} else if ( selector == 4 ) {
 		
