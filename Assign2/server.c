@@ -288,18 +288,14 @@ int main( int argc, char *argv[]) {
 				}
 				entry[request_entry - 1] = malloc( request_length * sizeof( char ) );
 				type[request_entry - 1] = temp_type;
-				printf( "%c", type[request_entry-1] );
 				num_entry = MAX( num_entry, request_entry );
 				might_new = false;
 				iterator = 0;
 			} else {
-				printf( "%s", line );
 				line_counter = 0;
 				while ( iterator != request_length && 
 				        line[line_counter] != '\n' ) {
-					printf( "Adding...\n" );
 					entry[request_entry - 1][iterator++] = line[line_counter++];
-					printf( "%s\n", entry[request_entry - 1] );
 				}
 				if ( iterator != request_length )
 					entry[request_entry - 1][iterator++] = '\n';

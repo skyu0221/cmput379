@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -16,14 +17,18 @@
 #define BUFFER 999999
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
-struct enncodingkey {
+struct encodingkey {
 
 	unsigned char salt[16];
 	unsigned char key[64];
 	unsigned char iv[32];
 };
 
-struct  enncodingkey default_keys;
+struct encodingkey *default_keys;
+
+int sock;
+
+char plain[BUFFER], encode[BUFFER], transfer[BUFFER];
 
 // copyed from eclass
 char *base64encode (const void *b64_encode_this, int encode_this_many_bytes){
@@ -59,7 +64,7 @@ char *base64decode (const void *b64_decode_this, int decode_this_many_bytes){
     return base64_decoded;        //Returns base-64 decoded data with trailing null terminator.
 }
 // copyed from eclass
-int encoding(char* request, char *test) {
+int encoding() {
 
 	unsigned char outbuf[BUFFER];
 	int outlen, tmplen;
@@ -68,12 +73,11 @@ int encoding(char* request, char *test) {
 	unsigned char intext[BUFFER];
 	bzero( intext, BUFFER );
 	
-	strcpy( intext, request );
-	
-	intext[strlen( intext ) - 1] = 0;
+	strcpy( intext, plain );
 
 	EVP_CIPHER_CTX_init(&ctx);
-	EVP_EncryptInit_ex(&ctx, EVP_aes_256_cbc(), NULL, default_keys.key, default_keys.iv);
+	EVP_EncryptInit_ex(&ctx, EVP_aes_256_cbc(), NULL, default_keys[0].key,
+	                                                  default_keys[0].iv);
 
 	if(!EVP_EncryptUpdate(&ctx, outbuf, &outlen, intext, strlen(intext)))
 		return 0;
@@ -90,24 +94,23 @@ int encoding(char* request, char *test) {
 	int bytes_to_encode = outlen;
 	
 	//Base-64 encoding.
-	unsigned char *base64_encoded = base64encode( data_to_encode, bytes_to_encode );
-	strcpy( test, base64_encoded );
+	unsigned char *base64_encoded = base64encode( data_to_encode,
+	                                              bytes_to_encode );
+	strcpy( encode, base64_encoded );
 	free(base64_encoded);
 	return 1;
 }
 // copyed from eclass
-int decoding( char* request, char *test ) {
+int decoding( int key_index ) {
 
-	unsigned char debuf[1024];
+	unsigned char debuf[BUFFER];
 	int delen, tmplen;
 	EVP_CIPHER_CTX ctx;
 
-	unsigned char data_to_decode[200];
-	bzero( data_to_decode, 200 );
-	char buffer[200];
-	sprintf( buffer, "Enter a string to be decrypted\n" );
-	write( 1, buffer, strlen( buffer ) );
-	read( 0, data_to_decode, 199 );
+	unsigned char data_to_decode[BUFFER];
+	bzero( data_to_decode, BUFFER );
+
+	strcpy( data_to_decode, encode );
 	
 	memset( debuf, 0, sizeof( debuf ) );
 	
@@ -116,12 +119,14 @@ int decoding( char* request, char *test ) {
 	int bytes_to_decode = strlen( data_to_decode );
 	
 	//Base-64 encoding.
-	unsigned char *base64_decoded = base64decode( data_to_decode, bytes_to_decode );
+	unsigned char *base64_decoded = base64decode( data_to_decode,
+	                                              bytes_to_decode );
 	
 	delen = strlen(base64_decoded);
 
 	EVP_CIPHER_CTX_init(&ctx);
-	EVP_DecryptInit_ex(&ctx, EVP_aes_256_cbc(), NULL, default_keys.key, default_keys.iv);
+	EVP_DecryptInit_ex(&ctx, EVP_aes_256_cbc(), NULL,
+	                   default_keys[key_index].key, default_keys[key_index].iv);
     
 	if(!EVP_DecryptUpdate(&ctx, debuf, &delen, base64_decoded, delen))
 		return 0;
@@ -134,26 +139,37 @@ int decoding( char* request, char *test ) {
 	delen += remainingBytes;
 	EVP_CIPHER_CTX_cleanup(&ctx);
 	
-	strncpy( test, debuf, delen );
+	strncpy( plain, debuf, delen );
 	free(base64_decoded);
 	return 1;
+}
+void handler( int sig ) {
+	printf( "\nShutting down.\n" );
+	close( sock );
+	free( default_keys );
+	printf( "Shutted down.\n" );
+	signal( SIGINT, SIG_DFL );
+	exit(1);
 }
 
 int main( int argc, char *argv[] ) {
 
-	int	                  sock,
-	                      number,
+	int	                  number,
 	                      selector,
 	                      input_length,
-	                      current;
+	                      current,
+	                      num_keys = 0,
+	                      i;
 	char                  message[BUFFER],
 	                      buff_send[BUFFER] = {0},
 	                      buffer[BUFFER],
 	                      encrypt;
-	bool                  user_length = false;
-	struct  enncodingkey  default_keys;
+	bool                  user_length = false,
+	                      solve = false;
 	struct	sockaddr_in	  serv_addr;
 	struct	hostent		 *host;
+	
+	signal( SIGINT, handler );
 	// set default key if key file is provided
 	if ( argc == 4 ) {
 
@@ -163,10 +179,21 @@ int main( int argc, char *argv[] ) {
 		size_t len = 0;
 		
 		fp = fopen( argv[3], "r" );
-		getline( &line, &len, fp );
-		strcpy( default_keys.salt, &line[5] );
-		strcpy( default_keys.key, &line[4] );
-		strcpy( default_keys.iv, &line[4] );
+		while ( getline( &line, &len, fp ) != -1 ) {
+			num_keys++;
+			if ( num_keys == 1 )
+				default_keys = (struct encodingkey*) malloc( 
+				                                 sizeof( struct encodingkey ) );
+			else
+				default_keys = (struct encodingkey*) realloc( default_keys, 
+				                      num_keys * sizeof( struct encodingkey ) );
+			strncpy( default_keys[num_keys - 1].salt, &line[5], 16 );
+			getline( &line, &len, fp );
+			strncpy( default_keys[num_keys - 1].key, &line[4], 64 );
+			getline( &line, &len, fp );
+			strncpy( default_keys[num_keys - 1].iv, &line[4], 32 );
+		}
+		fclose( fp );
 	}
 	// get link
 	host = gethostbyname( "localhost" );
@@ -259,7 +286,7 @@ int main( int argc, char *argv[] ) {
 			printf( "Default is the whole input content.\n" );
 			printf( "Will be MIN( len(content), user setting )\n" );
 			printf( "Type in -1 for default. Number for length.\n" );
-
+			// handle '\n' input
 			scanf( "%s", length_ptr );
 
 			if ( length_ptr[0] != '-' ) {
@@ -340,8 +367,13 @@ int main( int argc, char *argv[] ) {
 			
 		} else if ( selector == 3 ) {
 			// change entry with encrypt content if key file provided
-			char plain[BUFFER], length_ptr[BUFFER],
-			     input_line[BUFFER], encode[BUFFER];
+			if ( argc != 4 ) {
+				printf( "No keyfile detected!\n" );
+				continue;
+			}
+			
+			char length_ptr[BUFFER],
+			     input_line[BUFFER];
 			bool finish = false;
 			memset( buffer, 0, sizeof( buffer ) );
 			memset( plain, 0, sizeof( plain ) );
@@ -372,7 +404,7 @@ int main( int argc, char *argv[] ) {
 				user_length = true;
 			} else
 				user_length = false;
-
+			// handle '\n'
 			if ( selector == 1 )
 				if ( user_length ) {
 					printf( "\nWhat content you want to update?\n" );
@@ -434,15 +466,21 @@ int main( int argc, char *argv[] ) {
 					strcat( input_line, line );
 
 				if ( user_length )
-					strncpy( plain, input_line,
+					strncat( plain, input_line,
 					         MIN( input_length, strlen( input_line ) ) );
 				else {
-					strcpy( plain, input_line );
-					plain[strlen(plain) - 1] = '\0';
+					strcat( plain, input_line );
+					plain[strlen(plain) + 32] = '\0';
 				}
 			}
-			//encoding( plain, encode );
-			sprintf( buff_send, "@%sc%zu\n%s\n", buffer, strlen( encode ), encode );
+			memset( transfer, 0, sizeof( transfer ) );
+			strcpy( transfer, plain );
+			memset( plain, 0, sizeof( plain ) );
+			strcpy( plain, "CMPUT379 Whiteboard Encrypted v0\n" );
+			strcat( plain, transfer );
+			encoding();
+			sprintf( buff_send, "@%sc%zu\n%s\n", buffer,
+			                                     strlen( encode ), encode );
 		
 		} else if ( selector == 4 ) {
 		
@@ -454,6 +492,7 @@ int main( int argc, char *argv[] ) {
 			// end the connection
 			printf( "Shutting down.\n" );
 			close( sock );
+			free( default_keys );
 			printf( "Shutted down.\n" );
 			exit(1);
 		}
@@ -470,6 +509,38 @@ int main( int argc, char *argv[] ) {
 
 
 		printf( "%s", message );
+		// check if a encrypted message is received
+		current = 0;
+		while ( current < strlen( message ) 
+		        && ( message[current] != 'c' && message[current] != 'p' &&
+		             message[current] != 'e' ) )
+			current++;
+		if ( message[current] == 'c' ) {
+		
+			solve = false;
+		
+			while ( message[current] != '\n' )
+				current++;
+			current++;
+			printf( "Encrypted message received. Trying to decode.\n" );
+			memset( encode, 0, sizeof(encode) );
+			strcpy( encode, &message[current] );
+			// try to decrypt.
+			for ( i = 0; i < num_keys; i++ ) {
+				memset( plain, 0, sizeof(plain) );
+				decoding( i );
+				if ( strncmp( plain, "CMPUT379 Whiteboard Encrypted v0\n", 33 ) 
+				     == 0 ) {
+				     printf( "\nSuccessfully decrypt the message!\n" );
+				     printf( "The original message is:\n%s\n", &plain[33] );
+				     solve = true;
+				     break;
+				}
+			}
+			if ( !solve )
+				printf( "Sorry, you don't have the key for this message.\n" );
+			
+		}
 		printf( "= = = = = = = = = =\n" );		
 
 		//close( sock );
