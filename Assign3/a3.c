@@ -2,42 +2,56 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 
-int powerOf2(unsigned int number){
-    unsigned int power=1;
-    while(power<number && power<65536){
-        power *= 2;
-    }
-    return (number==power);
+#define MIN( a, b ) ( ( ( a ) < ( b ) ) ? ( a ) : ( b ) )
+#define MAX( a, b ) ( ( ( a ) > ( b ) ) ? ( a ) : ( b ) )
+#define POWOF2( n ) ( ( n & n - 1 ) == 0 )
+
+void exit_with_error( char* error_message ) {
+
+	printf( "Error: %s\n", error_message );
+	exit(1);
 }
 
-int main( int argc, char *argv[]) {
-    //tvm379 pgsize tlbentries {g|p} quantum physpages {f|l} trace1 trace2 ...
-    unsigned int pgsize=atoi(argv[1]);
-    unsigned int tlbentries=atoi(argv[2]);
-    unsigned int physpages=atoi(argv[5]);
+int main( int argc, char *argv[] ) {
 
-    //check number of arguments
-    if ( argc < 6 ) {
-		printf( "Server: Number of arguments are wrong\n" );
-		exit(1);
-	}
+	// check the initial arguments
+	// check number of arguments
+	if ( argc < 8 )
+		exit_with_error( "Number of arguments are wrong" );
 
-    //check if pgsize is a power of 2 or in range
-    if (pgsize<16 || pgsize>65536 || powerOf2(pgsize)!=1){
-        printf( "pagesize is not a power of 2\n");
-        exit(1);
-    }
+	//tvm379 pgsize tlbentries {g|p} quantum physpages {f|l} trace1 trace2 ...
+	long pgsize     = atol( argv[1] ),
+	     tlbentries = atol( argv[2] ),
+	     gp         =      *argv[3],
+	     quantum    = atol( argv[4] ),
+	     physpages  = atol( argv[5] ),
+	     fl         =      *argv[6];
 
-    //check tlbentries
-    if (tlbentries<8 || tlbentries>256 || powerOf2(tlbentries)!=1){
-        printf( "tlbentries is not a power of 2\n");
-        exit(1);
-    }
+	printf( "%ld\n", pgsize );
 
-    //physpages
-    if (physpages>1000000) {
-        printf("physpages too large\n");
-        exit(1);
-    }
+	// check if pgsize is a power of 2 or in range
+	if ( pgsize < 16 || pgsize > 65536 || !POWOF2( pgsize ) )
+		exit_with_error( "pagesize is not a power of 2 or not in 16~65536" );
+
+    // check tlbentries is a power of 2 or in range
+	if ( tlbentries < 8 || tlbentries > 256 || !POWOF2( tlbentries ) )
+        exit_with_error( "tlbentries is not a power of 2 or not in 8~256" );
+
+    // check gp is 'g' or 'p'
+	if ( gp != 'g' && gp != 'p' )
+        exit_with_error( "flag for TLB entries unknown" );
+
+    // check quantum is positive
+	if ( quantum <= 0 )
+        exit_with_error( "quantum is not a positive number" );
+
+    // check physpages is in range
+	if ( physpages > 1000000 || physpages < 0 )
+        exit_with_error( "physpages is not in 0~1000000" );
+
+    // check fl is 'f' or 'l'
+	if ( fl != 'f' && fl != 'l' )
+        exit_with_error( "flag for page eviction policy unknown" );
 }
