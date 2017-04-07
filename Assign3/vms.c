@@ -19,10 +19,13 @@ void exit_with_error( char* error_message ) {
 	exit(1);
 }
 
+// Check if the trace file exist and if we have the access to the file
 bool check_file_existance( char* file_name ) {
 
+	// Check the existance by try to open the file
 	FILE *file = fopen( file_name, "r" );
 
+	// If we can open it, close the file
 	if ( file ) {
 
 		fclose( file );
@@ -32,11 +35,12 @@ bool check_file_existance( char* file_name ) {
 	return false;
 }
 
+// Calculate the offset of address
 int get_offset( int number ) {
 
 	if ( number == 1 )
 		return 0;
-
+	// Calculate the log2(pgsize)
 	return 1 + get_offset( number >> 1 );
 }
 
@@ -48,6 +52,7 @@ struct Node {
 	            *rhs;
 };
 
+// Create and initial a node with given value
 struct Node* create_node( long value ) {
 
 	struct Node *node = ( struct Node* ) malloc( sizeof( struct Node ) );
@@ -60,6 +65,7 @@ struct Node* create_node( long value ) {
 	return node;
 }
 
+// Calculate the height of given node
 int get_height( struct Node *node ) {
 
 	if ( node == NULL )
@@ -68,6 +74,7 @@ int get_height( struct Node *node ) {
 	return node->height;
 }
 
+// Calculate the balance of given node
 int get_balance( struct Node *node ) {
 
 	if ( node == NULL )
@@ -76,6 +83,9 @@ int get_balance( struct Node *node ) {
 	return get_height( node->lhs ) - get_height( node->rhs );
 }
 
+// Right rotation in the AVL Tree
+// Require: Root of given tree
+// Return:  Root of right rotated tree
 struct Node* rotate_rhs( struct Node *root ) {
 
 	struct Node *lhs = root->lhs,
@@ -90,6 +100,9 @@ struct Node* rotate_rhs( struct Node *root ) {
 	return lhs;
 }
 
+// Left rotation in the AVL Tree
+// Require: Root of given tree
+// Return:  Root of left rotated tree
 struct Node* rotate_lhs( struct Node *root ) {
 
 	struct Node *rhs = root->rhs,
@@ -104,6 +117,9 @@ struct Node* rotate_lhs( struct Node *root ) {
 	return rhs;
 }
 
+// Find the node with minimum value in the AVL Tree
+// Require: Root of given tree
+// Return:  Node with the minimum value
 struct Node* min_value( struct Node *node ) {
 
 	struct Node *current = node;
@@ -114,63 +130,83 @@ struct Node* min_value( struct Node *node ) {
 	return current;
 }
 
-struct Node* insert( struct Node *node, long value ) {
+// Insert a node with certain value in the given AVL Tree
+// Require: Root of given tree, value want to insert
+// Return:  Root of AVL tree inserted target value
+struct Node* insert( struct Node *root, long value ) {
 
-	if ( node == NULL )
+	// Check for the empty tree
+	if ( root == NULL )
 		return create_node( value );
 
-	if ( value > node->value )
-		node->rhs = insert( node->rhs, value );
+	// If value is greater than root, target position is on the right
+	if ( value > root->value )
+		root->rhs = insert( root->rhs, value );
 
-	else if ( value < node->value )
-		node->lhs = insert( node->lhs, value );
+	// If value is smaller than root, target position is on the left
+	else if ( value < root->value )
+		root->lhs = insert( root->lhs, value );
 
+	// If value is the root, no need for insertion (page table hit)
 	else
-		return node;
+		return root;
 
 	int balance;
 
-	node->height = MAX( get_height( node->lhs ), get_height( node->rhs ) ) + 1;
-	balance      = get_balance( node );
+	// Update the height for the current root and check balance
+	root->height = MAX( get_height( root->lhs ), get_height( root->rhs ) ) + 1;
+	balance      = get_balance( root );
 
-	if ( balance >  1 && value < node->lhs->value )
-		return rotate_rhs( node );
+	// LL case
+	if ( balance >  1 && value < root->lhs->value )
+		return rotate_rhs( root );
 
-	if ( balance >  1 && value > node->lhs->value ) {
+	// LR case
+	if ( balance >  1 && value > root->lhs->value ) {
 
-		node->lhs = rotate_lhs( node->lhs );
-		return rotate_rhs( node );
+		root->lhs = rotate_lhs( root->lhs );
+		return rotate_rhs( root );
 	}
 
-	if ( balance < -1 && value > node->rhs->value )
-		return rotate_lhs( node );
+	// RR case
+	if ( balance < -1 && value > root->rhs->value )
+		return rotate_lhs( root );
 
-	if ( balance < -1 && value < node->rhs->value ) {
+	// RL case
+	if ( balance < -1 && value < root->rhs->value ) {
 
-		node->rhs = rotate_rhs( node->rhs );
-		return rotate_lhs( node );
+		root->rhs = rotate_rhs( root->rhs );
+		return rotate_lhs( root );
 	}
 
-	return node;
+	return root;
 }
-
+// Delete a node with certain value in the given AVL Tree
+// Require: Root of given tree, value want to delete
+// Return:  Root of AVL tree removed target value
 struct Node *delete( struct Node *root, long value ) {
 
+	// Check for the empty tree
 	if ( root == NULL )
 		return root;
 
+	// If value is greater than root, target is on the right
 	if ( value > root->value )
 		root->rhs = delete( root->rhs, value );
 
+	// If value is smaller than root, target is on the left
 	else if ( value < root->value )
 		root->lhs = delete( root->lhs, value );
 
+	// If value is the root, remove the root
 	else {
 
+		// Check if root has less than two children
 		if ( ( root->lhs == NULL ) || ( root->rhs == NULL ) ) {
 
 			struct Node *temp = root->lhs ? root->lhs : root->rhs;
 
+			// If no child
 			if ( temp == NULL ) {
 
 				temp = root;
@@ -179,8 +215,10 @@ struct Node *delete( struct Node *root, long value ) {
 				*root = *temp;
 
 			free( temp );
+
 		} else {
 
+			// Get the inorder successor
 			struct Node *temp = min_value( root->rhs );
 
 			root->value = temp->value;
@@ -193,21 +231,26 @@ struct Node *delete( struct Node *root, long value ) {
 
 	int balance;
 
+	// Update the height for the current root and check balance
 	root->height = MAX( get_height( root->lhs ), get_height( root->rhs ) ) + 1;
 	balance      = get_balance( root );
 
+	// LL case
 	if ( balance >  1 && get_balance( root->lhs ) >= 0 )
 		return rotate_rhs( root );
 
+	// LR case
 	if ( balance >  1 && get_balance( root->lhs ) <  0 ) {
 
 		root->lhs = rotate_lhs( root->lhs );
 		return rotate_rhs( root );
 	}
 
+	// RR case
 	if ( balance < -1 && get_balance( root->lhs ) <= 0 )
 		return rotate_lhs( root );
 
+	// RL case
 	if ( balance < -1 && get_balance( root->lhs ) >  0 ) {
 
 		root->rhs = rotate_rhs( root->rhs );
@@ -219,12 +262,12 @@ struct Node *delete( struct Node *root, long value ) {
 
 int main( int argc, char *argv[] ) {
 
-	// check the initial arguments
-	// check number of arguments
+	// Check the initial arguments
+	// Check number of arguments
 	if ( argc < 8 )
 		exit_with_error( "Number of arguments are wrong" );
 
-	//tvm379 pgsize tlbentries {g|p} quantum physpages {f|l} trace1 trace2 ...
+	// tvm379 pgsize tlbentries {g|p} quantum physpages {f|l} trace1 trace2 ...
 	int  i,
 	     offset;
 	long pgsize     = atol( argv[1] ),
@@ -234,36 +277,36 @@ int main( int argc, char *argv[] ) {
 	     physpages  = atol( argv[5] ),
 	     fl         =      *argv[6];
 
-	// check if pgsize is a power of 2 or in range
+	// Check if pgsize is a power of 2 or in range
 	if ( pgsize < 16 || pgsize > 65536 || !POWOF2( pgsize ) )
 		exit_with_error( "pagesize is not a power of 2 or not in 16~65536" );
 
-    // check tlbentries is a power of 2 or in range
+    // Check tlbentries is a power of 2 or in range
 	if ( tlbentries < 8 || tlbentries > 256 || !POWOF2( tlbentries ) )
         exit_with_error( "tlbentries is not a power of 2 or not in 8~256" );
 
-    // check gp is 'g' or 'p'
+    // Check gp is 'g' or 'p'
 	if ( gp != 'g' && gp != 'p' )
         exit_with_error( "flag for TLB entries unknown" );
 
-    // check quantum is positive
+    // Check quantum is positive
 	if ( quantum <= 0 )
         exit_with_error( "quantum is not a positive number" );
 
-    // check physpages is in range
+    // Check physpages is in range
 	if ( physpages > 1000000 || physpages < 0 )
         exit_with_error( "physpages is not in 0~1000000" );
 
-    // check fl is 'f' or 'l'
+    // Check fl is 'f' or 'l'
 	if ( fl != 'f' && fl != 'l' )
         exit_with_error( "flag for page eviction policy unknown" );
 
-	// check the existances of all trace file
+	// Check the existances of all trace file
 	for ( i = 7; i < argc; i++ )
 		if ( !check_file_existance( argv[i] ) )
 			exit_with_error( "trace file does not exist or permission denied" );
 
-	// initialize tlb table and offest length
+	// Initialize tlb table and offest length
 	tlb    = (long *) calloc( tlbentries, sizeof( long ) );
 	offset = get_offset( pgsize );
 }
