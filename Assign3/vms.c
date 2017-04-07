@@ -9,13 +9,38 @@
 #define MAX( a, b ) ( ( ( a ) > ( b ) ) ? ( a ) : ( b ) )
 #define POWOF2( n ) ( ( n & n - 1 ) == 0 )
 
-long *tlb,
-     *page_table;
+struct Node {
+
+	unsigned long  value;
+    int            height;
+	struct Node   *lhs,
+	              *rhs;
+};
+
+struct LinkedList {
+
+	unsigned long      value;
+	unsigned int       process;
+	struct LinkedList *next;
+	struct LinkedList *prev;
+};
+
+unsigned long long  *tlbhits,
+                    *pf,
+                    *pageout,
+                    *avs;
+bool                *end_of_file;
+struct LinkedList          *tlb;
+struct Node        **page_table_avl;
+FILE               **trace;
 
 void exit_with_error( char* error_message ) {
 
 	printf( "Error: %s\n", error_message );
-	free( tlb );
+	free( tlbhits );
+	free( pf );
+	free( pageout );
+	free( avs );
 	exit(1);
 }
 
@@ -34,9 +59,19 @@ bool check_file_existance( char* file_name ) {
 
 	return false;
 }
+// Check if all files are not finished reading
+bool keep_reading( unsigned int number_of_files ) {
+
+	// Check if any file is not finished yet
+	for ( int i = 0; i < number_of_files; i++ )
+		if ( !end_of_file[i] )
+			return true;
+
+	return false;
+}
 
 // Calculate the offset of address
-int get_offset( int number ) {
+unsigned int get_offset( unsigned int number ) {
 
 	if ( number == 1 )
 		return 0;
@@ -44,16 +79,23 @@ int get_offset( int number ) {
 	return 1 + get_offset( number >> 1 );
 }
 
-struct Node {
+// Create and initial a linked list with given process and value
+struct LinkedList* create_linked_list(
+                                   unsigned long value, unsigned int process ) {
 
-	long         value;
-    int          height;
-	struct Node *lhs,
-	            *rhs;
-};
+	struct LinkedList *node = ( struct LinkedList* )
+	                              malloc( sizeof( struct LinkedList ) );
+
+	node->value   = value;
+	node->process = process;
+	node->next    = NULL;
+	node->prev    = NULL;
+
+	return node;
+}
 
 // Create and initial a node with given value
-struct Node* create_node( long value ) {
+struct Node* create_node( unsigned long value ) {
 
 	struct Node *node = ( struct Node* ) malloc( sizeof( struct Node ) );
 
@@ -133,7 +175,7 @@ struct Node* min_value( struct Node *node ) {
 // Insert a node with certain value in the given AVL Tree
 // Require: Root of given tree, value want to insert
 // Return:  Root of AVL tree inserted target value
-struct Node* insert( struct Node *root, long value ) {
+struct Node* insert( struct Node *root, unsigned long value ) {
 
 	// Check for the empty tree
 	if ( root == NULL )
@@ -184,7 +226,7 @@ struct Node* insert( struct Node *root, long value ) {
 // Delete a node with certain value in the given AVL Tree
 // Require: Root of given tree, value want to delete
 // Return:  Root of AVL tree removed target value
-struct Node *delete( struct Node *root, long value ) {
+struct Node *delete( struct Node *root, unsigned long value ) {
 
 	// Check for the empty tree
 	if ( root == NULL )
@@ -268,14 +310,24 @@ int main( int argc, char *argv[] ) {
 		exit_with_error( "Number of arguments are wrong" );
 
 	// tvm379 pgsize tlbentries {g|p} quantum physpages {f|l} trace1 trace2 ...
-	int  i,
-	     offset;
-	long pgsize     = atol( argv[1] ),
-	     tlbentries = atol( argv[2] ),
-	     gp         =      *argv[3],
-	     quantum    = atol( argv[4] ),
-	     physpages  = atol( argv[5] ),
-	     fl         =      *argv[6];
+	unsigned int       i,
+	                   offset,
+	                   result,
+	                   file_number,
+	                   tlb_recorder    = 0,
+	                   number_of_files = argc - 7;
+	char               input_bin[4],
+	                   temp;
+	unsigned long      pgsize          = atol( argv[1] ),
+	                   tlbentries      = atol( argv[2] ),
+	                   gp              =      *argv[3],
+	                   quantum         = atol( argv[4] ),
+	                   physpages       = atol( argv[5] ),
+	                   fl              =      *argv[6],
+	                   address         = 0;
+	struct LinkedList *current,
+	                  *previous;
+	bool               marker;
 
 	// Check if pgsize is a power of 2 or in range
 	if ( pgsize < 16 || pgsize > 65536 || !POWOF2( pgsize ) )
@@ -302,11 +354,125 @@ int main( int argc, char *argv[] ) {
         exit_with_error( "flag for page eviction policy unknown" );
 
 	// Check the existances of all trace file
-	for ( i = 7; i < argc; i++ )
-		if ( !check_file_existance( argv[i] ) )
+	for ( i = 0; i < number_of_files; i++ )
+		if ( !check_file_existance( argv[i + 7] ) )
 			exit_with_error( "trace file does not exist or permission denied" );
 
-	// Initialize tlb table and offest length
-	tlb    = (long *) calloc( tlbentries, sizeof( long ) );
-	offset = get_offset( pgsize );
+	// Initialize tlb table, page table, offest length and output counters
+	tlbhits        = ( unsigned long long* )
+	                     calloc( number_of_files, sizeof( long long ) );
+	pf             = ( unsigned long long* )
+	                     calloc( number_of_files, sizeof( long long ) );
+	pageout        = ( unsigned long long* )
+	                     calloc( number_of_files, sizeof( long long ) );
+	avs            = ( unsigned long long* )
+	                     calloc( number_of_files, sizeof( long long ) );
+	end_of_file    = ( bool* )
+	                     calloc( number_of_files, sizeof( bool ) );
+	page_table_avl = ( struct Node** )
+	                     calloc( number_of_files, sizeof( struct Node* ) );
+	trace          = ( FILE** )
+	                     calloc( number_of_files, sizeof( FILE* ) );
+	offset         = get_offset( pgsize );
+
+	// Open all files
+	for ( i = 0; i < number_of_files; i++ )
+		trace[i] = fopen( argv[i + 7], "r" );
+
+	// Start read file
+	// Follow the Round Robin rule and each file read quantum number of address
+	while ( keep_reading( number_of_files ) ) {
+
+		// Rotate between each file
+		for ( file_number = 0; file_number < number_of_files; file_number++ ) {
+
+			if ( end_of_file[file_number] )
+				continue;
+
+			if ( gp == 'p' ) {
+
+				tlb          = NULL;
+				tlb_recorder = 0;
+			}
+
+			// Read quantum number of addresses
+			for ( long j = 0; j < quantum; j++ ) {
+
+				// Read 4 * 8 bit = 32 bit from the file
+				result = fread( input_bin, 1, 4, trace[file_number] );
+
+				// Ignore the invalid ending bytes
+				if ( result != 4 ) {
+
+					end_of_file[file_number] = true;
+					break;
+				}
+
+				temp         = input_bin[0];
+				input_bin[0] = input_bin[3];
+				input_bin[3] = temp;
+				temp         = input_bin[1];
+				input_bin[1] = input_bin[2];
+				input_bin[2] = temp;
+
+				// Store in a 32 bit variable, remove the offset
+				address = *(unsigned long*)input_bin>>offset;
+
+				// Try to hit TLB
+				current  = tlb;
+				previous = NULL;
+				marker   = false;
+
+				while ( current != NULL ) {
+
+					if ( current->value   == address &&
+					     current->process == file_number ) {
+
+						// Add one on the tlbhits
+						tlbhits[file_number]++;
+						marker = true;
+
+						// Update the list base on LRU
+						if ( previous != NULL ) {
+
+							// Take the hitted entry to the front
+							previous->next      = current->next;
+							current->next->prev = previous;
+							current->next       = tlb;
+							tlb->prev           = current;
+							tlb                 = current;
+						}
+						break;
+					}
+
+					previous = current;
+					current  = current->next;
+				}
+
+
+
+				// TLB hit
+				if ( marker )
+					continue;
+
+				// TLB miss
+				current = create_linked_list( address, file_number );
+
+				// Check if TLB is full
+				if ( tlb_recorder == tlbentries ) {
+
+					// Remove the least recent unit
+					previous->prev->next = NULL;
+					free( previous );
+					tlb_recorder--;
+				}
+
+				// Take the new entry to the front of TLB
+				current->next = tlb;
+				tlb->prev     = current;
+				tlb           = current;
+				tlb_recorder++;
+			}
+		}
+	}
 }
