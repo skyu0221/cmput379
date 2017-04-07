@@ -9,7 +9,8 @@
 #define MAX( a, b ) ( ( ( a ) > ( b ) ) ? ( a ) : ( b ) )
 #define POWOF2( n ) ( ( n & n - 1 ) == 0 )
 
-long *tlb;
+long *tlb,
+     *page_table;
 
 void exit_with_error( char* error_message ) {
 
@@ -37,6 +38,183 @@ int get_offset( int number ) {
 		return 0;
 
 	return 1 + get_offset( number >> 1 );
+}
+
+struct Node {
+
+	long         value;
+    int          height;
+	struct Node *lhs,
+	            *rhs;
+};
+
+struct Node* create_node( long value ) {
+
+	struct Node *node = ( struct Node* ) malloc( sizeof( struct Node ) );
+
+	node->value  = value;
+	node->lhs    = NULL;
+	node->rhs    = NULL;
+	node->height = 1;
+
+	return node;
+}
+
+int get_height( struct Node *node ) {
+
+	if ( node == NULL )
+		return 0;
+
+	return node->height;
+}
+
+int get_balance( struct Node *node ) {
+
+	if ( node == NULL )
+		return 0;
+
+	return get_height( node->lhs ) - get_height( node->rhs );
+}
+
+struct Node* rotate_rhs( struct Node *root ) {
+
+	struct Node *lhs = root->lhs,
+	            *l_r = root->lhs->rhs;
+
+	lhs->rhs  = root;
+	root->lhs = l_r;
+
+	root->height = MAX( get_height( root->lhs ), get_height( root->rhs ) ) + 1;
+	lhs->height  = MAX( get_height(  lhs->lhs ), get_height(  lhs->rhs ) ) + 1;
+
+	return lhs;
+}
+
+struct Node* rotate_lhs( struct Node *root ) {
+
+	struct Node *rhs = root->rhs,
+	            *r_l = root->rhs->lhs;
+
+	rhs->lhs  = root;
+	root->rhs = r_l;
+
+	root->height = MAX( get_height( root->lhs ), get_height( root->rhs ) ) + 1;
+	rhs->height  = MAX( get_height(  rhs->lhs ), get_height(  rhs->rhs ) ) + 1;
+
+	return rhs;
+}
+
+struct Node* min_value( struct Node *node ) {
+
+	struct Node *current = node;
+
+	while ( current->lhs != NULL )
+		current = current->lhs;
+
+	return current;
+}
+
+struct Node* insert( struct Node *node, long value ) {
+
+	if ( node == NULL )
+		return create_node( value );
+
+	if ( value > node->value )
+		node->rhs = insert( node->rhs, value );
+
+	else if ( value < node->value )
+		node->lhs = insert( node->lhs, value );
+
+	else
+		return node;
+
+	int balance;
+
+	node->height = MAX( get_height( node->lhs ), get_height( node->rhs ) ) + 1;
+	balance      = get_balance( node );
+
+	if ( balance >  1 && value < node->lhs->value )
+		return rotate_rhs( node );
+
+	if ( balance >  1 && value > node->lhs->value ) {
+
+		node->lhs = rotate_lhs( node->lhs );
+		return rotate_rhs( node );
+	}
+
+	if ( balance < -1 && value > node->rhs->value )
+		return rotate_lhs( node );
+
+	if ( balance < -1 && value < node->rhs->value ) {
+
+		node->rhs = rotate_rhs( node->rhs );
+		return rotate_lhs( node );
+	}
+
+	return node;
+}
+
+struct Node *delete( struct Node *root, long value ) {
+
+	if ( root == NULL )
+		return root;
+
+	if ( value > root->value )
+		root->rhs = delete( root->rhs, value );
+
+	else if ( value < root->value )
+		root->lhs = delete( root->lhs, value );
+
+	else {
+
+		if ( ( root->lhs == NULL ) || ( root->rhs == NULL ) ) {
+
+			struct Node *temp = root->lhs ? root->lhs : root->rhs;
+
+			if ( temp == NULL ) {
+
+				temp = root;
+				root = NULL;
+			} else
+				*root = *temp;
+
+			free( temp );
+		} else {
+
+			struct Node *temp = min_value( root->rhs );
+
+			root->value = temp->value;
+			root->rhs   = delete( root->rhs, temp->value );
+		}
+	}
+
+	if ( root == NULL )
+		return root;
+
+	int balance;
+
+	root->height = MAX( get_height( root->lhs ), get_height( root->rhs ) ) + 1;
+	balance      = get_balance( root );
+
+	if ( balance >  1 && get_balance( root->lhs ) >= 0 )
+		return rotate_rhs( root );
+
+	if ( balance >  1 && get_balance( root->lhs ) <  0 ) {
+
+		root->lhs = rotate_lhs( root->lhs );
+		return rotate_rhs( root );
+	}
+
+	if ( balance < -1 && get_balance( root->lhs ) <= 0 )
+		return rotate_lhs( root );
+
+	if ( balance < -1 && get_balance( root->lhs ) >  0 ) {
+
+		root->rhs = rotate_rhs( root->rhs );
+		return rotate_lhs( root );
+	}
+
+	return root;
 }
 
 int main( int argc, char *argv[] ) {
