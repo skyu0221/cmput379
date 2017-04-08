@@ -572,7 +572,7 @@ int main( int argc, char *argv[] ) {
 	// Finished reading trace files
 	// Print out the result to stdout
 	for ( file_number = 0; file_number < number_of_files; file_number++ )
-		printf( "%llu %llu %llu %llu", tlbhits[file_number],
+		printf( "%llu %llu %llu %llu\n", tlbhits[file_number],
 		                               pf[file_number],
 		                               pageout[file_number],
 		                               avs[file_number] );
