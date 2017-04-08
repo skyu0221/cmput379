@@ -9,14 +9,6 @@
 #define MAX( a, b ) ( ( ( a ) > ( b ) ) ? ( a ) : ( b ) )
 #define POWOF2( n ) ( ( n & n - 1 ) == 0 )
 
-struct Node {
-
-	unsigned long  value;
-    int            height;
-	struct Node   *lhs,
-	              *rhs;
-};
-
 struct LinkedList {
 
 	unsigned long      value;
@@ -25,13 +17,28 @@ struct LinkedList {
 	struct LinkedList *prev;
 };
 
+struct Node {
+
+	unsigned long      value;
+	unsigned int       process;
+    int                height;
+	struct Node       *lhs,
+	                  *rhs,
+	                  *next,
+	                  *prev;
+};
+
 unsigned long long  *tlbhits,
                     *pf,
                     *pageout,
                     *avs;
-bool                *end_of_file;
-struct LinkedList          *tlb;
-struct Node        **page_table_avl;
+unsigned long        fl;
+bool                *end_of_file,
+                     page_table_hit;
+struct LinkedList   *tlb             = NULL;
+struct Node         *page_table_head = NULL,
+                    *page_table_tail = NULL,
+                   **page_table_avl  = NULL;
 FILE               **trace;
 
 void exit_with_error( char* error_message ) {
@@ -86,23 +93,26 @@ struct LinkedList* create_linked_list(
 	struct LinkedList *node = ( struct LinkedList* )
 	                              malloc( sizeof( struct LinkedList ) );
 
-	node->value   = value;
-	node->process = process;
-	node->next    = NULL;
-	node->prev    = NULL;
+	node->value    = value;
+	node->process  = process;
+	node->next     = NULL;
+	node->prev     = NULL;
 
 	return node;
 }
 
 // Create and initial a node with given value
-struct Node* create_node( unsigned long value ) {
+struct Node* create_node( unsigned long value, unsigned int process ) {
 
 	struct Node *node = ( struct Node* ) malloc( sizeof( struct Node ) );
 
-	node->value  = value;
-	node->lhs    = NULL;
-	node->rhs    = NULL;
-	node->height = 1;
+	node->value   = value;
+	node->process = process;
+	node->lhs     = NULL;
+	node->rhs     = NULL;
+	node->next    = NULL;
+	node->prev    = NULL;
+	node->height  = 1;
 
 	return node;
 }
@@ -175,23 +185,58 @@ struct Node* min_value( struct Node *node ) {
 // Insert a node with certain value in the given AVL Tree
 // Require: Root of given tree, value want to insert
 // Return:  Root of AVL tree inserted target value
-struct Node* insert( struct Node *root, unsigned long value ) {
+struct Node* insert( struct Node   *root,
+                     unsigned long  value,
+                     unsigned int   process ) {
 
 	// Check for the empty tree
-	if ( root == NULL )
-		return create_node( value );
+	if ( root == NULL ) {
+
+		struct Node *temp = create_node( value, process );
+
+		temp->next = page_table_head;
+
+		if ( page_table_head != NULL )
+			page_table_head->prev = temp;
+
+		page_table_head = temp;
+
+		return temp;
+	}
 
 	// If value is greater than root, target position is on the right
 	if ( value > root->value )
-		root->rhs = insert( root->rhs, value );
+		root->rhs = insert( root->rhs, value, process );
 
 	// If value is smaller than root, target position is on the left
 	else if ( value < root->value )
-		root->lhs = insert( root->lhs, value );
+		root->lhs = insert( root->lhs, value, process );
 
 	// If value is the root, no need for insertion (page table hit)
-	else
+	else {
+
+		page_table_hit = true;
+
+		if ( fl == 'l' ) {
+
+			if ( root == page_table_tail )
+				page_table_tail       = root->prev;
+
+			root->prev->next          = root->next;
+
+			if ( root->next != NULL )
+				root->next->prev      = root->prev;
+
+			root->next                = page_table_head;
+
+			if ( page_table_head != NULL )
+				page_table_head->prev = root;
+
+			page_table_head           = root;
+		}
+
 		return root;
+	}
 
 	int balance;
 
@@ -242,6 +287,10 @@ struct Node *delete( struct Node *root, unsigned long value ) {
 
 	// If value is the root, remove the root
 	else {
+
+		// Move our marker for the tail one step forward
+		page_table_tail       = page_table_tail->prev;
+		page_table_tail->next = NULL;
 
 		// Check if root has less than two children
 		if ( ( root->lhs == NULL ) || ( root->rhs == NULL ) ) {
@@ -314,20 +363,21 @@ int main( int argc, char *argv[] ) {
 	                   offset,
 	                   result,
 	                   file_number,
-	                   tlb_recorder    = 0,
-	                   number_of_files = argc - 7;
+	                   tlb_recorder        = 0,
+	                   number_of_files     = argc - 7;
 	char               input_bin[4],
 	                   temp;
-	unsigned long      pgsize          = atol( argv[1] ),
-	                   tlbentries      = atol( argv[2] ),
-	                   gp              =      *argv[3],
-	                   quantum         = atol( argv[4] ),
-	                   physpages       = atol( argv[5] ),
-	                   fl              =      *argv[6],
-	                   address         = 0;
+	unsigned long      pgsize              = atol( argv[1] ),
+	                   tlbentries          = atol( argv[2] ),
+	                   gp                  =      *argv[3],
+	                   quantum             = atol( argv[4] ),
+	                   physpages           = atol( argv[5] ),
+	                   address             = 0,
+	                   page_table_recorder = 0;
 	struct LinkedList *current,
 	                  *previous;
 	bool               marker;
+    fl                                     =      *argv[6];
 
 	// Check if pgsize is a power of 2 or in range
 	if ( pgsize < 16 || pgsize > 65536 || !POWOF2( pgsize ) )
@@ -405,6 +455,7 @@ int main( int argc, char *argv[] ) {
 				if ( result != 4 ) {
 
 					end_of_file[file_number] = true;
+					fclose( trace[file_number] );
 					break;
 				}
 
@@ -436,11 +487,17 @@ int main( int argc, char *argv[] ) {
 						if ( previous != NULL ) {
 
 							// Take the hitted entry to the front
-							previous->next      = current->next;
-							current->next->prev = previous;
-							current->next       = tlb;
-							tlb->prev           = current;
-							tlb                 = current;
+							previous->next          = current->next;
+
+							if ( current->next != NULL )
+								current->next->prev = previous;
+
+							current->next           = tlb;
+
+							if ( tlb != NULL )
+								tlb->prev           = current;
+
+							tlb                     = current;
 						}
 						break;
 					}
@@ -469,10 +526,54 @@ int main( int argc, char *argv[] ) {
 
 				// Take the new entry to the front of TLB
 				current->next = tlb;
-				tlb->prev     = current;
+				if ( tlb != NULL )
+					tlb->prev = current;
 				tlb           = current;
 				tlb_recorder++;
+
+				// Try to hit page table
+				// Hash for the process
+				page_table_hit = false;
+				page_table_avl[file_number] = 
+				    insert( page_table_avl[file_number], address, file_number );
+
+				// Take the linked list for page table with this address to the
+				// front of the list (LRU).
+
+				// Check if we hit the page table or we updated the table
+				// Page table hit
+				if ( page_table_hit )
+					continue;
+
+				// Page table miss
+				pf[file_number]++;
+
+				if ( page_table_recorder == 0 )
+					page_table_tail = page_table_avl[file_number];
+
+				page_table_recorder++;
+
+				// Remove one entry by FIFO or LRU
+				if ( page_table_recorder > physpages ) {
+
+					// Add one on pageout if the last entry belongs
+					// to this process
+					if ( page_table_tail->process == file_number )
+						pageout[file_number]++;
+
+					page_table_avl[page_table_tail->process] =
+					           delete( page_table_avl[page_table_tail->process],
+					                   page_table_tail->value );
+				}
 			}
 		}
 	}
+
+	// Finished reading trace files
+	// Print out the result to stdout
+	for ( file_number = 0; file_number < number_of_files; file_number++ )
+		printf( "%llu %llu %llu %llu", tlbhits[file_number],
+		                               pf[file_number],
+		                               pageout[file_number],
+		                               avs[file_number] );
 }
