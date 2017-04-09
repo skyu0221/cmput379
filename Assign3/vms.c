@@ -281,6 +281,7 @@ struct Node* insert( struct Node   *root,
 
 	return root;
 }
+
 // Delete a node with certain value in the given AVL Tree
 // Require: Root of given tree, value want to delete
 // Return:  Root of AVL tree removed target value
@@ -289,8 +290,11 @@ struct Node *delete( struct Node   *root,
                      bool           change_tail ) {
 
 	//printf(" - %lu-%u", root->value, root->process);
-	//printf( " Current Tail: %lu-%u Previous Tail: %lu-%u\n", page_table_tail->value, page_table_tail->process,
-//page_table_tail->prev->value, page_table_tail->prev->process );
+	//printf( "*Current Tail: %lu-%u Previous Tail: %lu-%u\n",
+	                             //page_table_tail->value,
+	                             //page_table_tail->process,
+	                             //page_table_tail->prev->value,
+	                             //page_table_tail->prev->process );
 
 	// Check for the empty tree
 	if ( root == NULL )
@@ -318,7 +322,9 @@ struct Node *delete( struct Node   *root,
 			page_table_tail             = page_table_tail->prev;
 			page_table_tail->next->prev = NULL;
 			page_table_tail->next       = NULL;
-			//printf( "\nTail Value: %lu-%u\n", page_table_tail->value, page_table_tail->process );
+
+			//printf( "\nTail Value: %lu-%u\n",
+			               //page_table_tail->value, page_table_tail->process );
 		}
 
 		//printf( "\nCheck\n" );
@@ -338,21 +344,40 @@ struct Node *delete( struct Node   *root,
 				if ( !change_tail )
 					page_table_tail = page_table_tail->prev->next;
 
-	//printf( "*Current Tail: %lu-%u Previous Tail: %lu-%u\n", page_table_tail->value, page_table_tail->process,
-//page_table_tail->prev->value, page_table_tail->prev->process );
+
+				//printf( "*Current Tail: %lu-%u Previous Tail: %lu-%u\n",
+				                             //page_table_tail->value,
+				                             //page_table_tail->process,
+				                             //page_table_tail->prev->value,
+				                             //page_table_tail->prev->process );
+
 				*root                = *temp;
 				if ( temp->prev != NULL )
 					temp->prev->next = root;
-	//printf( "*Current Tail: %lu-%u Previous Tail: %lu-%u\n", page_table_tail->value, page_table_tail->process,
-//page_table_tail->prev->value, page_table_tail->prev->process );
+
+				//printf( "*Current Tail: %lu-%u Previous Tail: %lu-%u\n",
+				                             //page_table_tail->value,
+				                             //page_table_tail->process,
+				                             //page_table_tail->prev->value,
+				                             //page_table_tail->prev->process );
+
 				if ( temp->next != NULL )
 					temp->next->prev = root;
-	//printf( "*Current Tail: %lu-%u Previous Tail: %lu-%u\n", page_table_tail->value, page_table_tail->process,
-//page_table_tail->prev->value, page_table_tail->prev->process );
+
+				//printf( "*Current Tail: %lu-%u Previous Tail: %lu-%u\n",
+				                             //page_table_tail->value,
+				                             //page_table_tail->process,
+				                             //page_table_tail->prev->value,
+				                             //page_table_tail->prev->process );
+
 				if ( temp == page_table_head )
 					page_table_head  = root;
-	//printf( "*Current Tail: %lu-%u Previous Tail: %lu-%u\n", page_table_tail->value, page_table_tail->process,
-//page_table_tail->prev->value, page_table_tail->prev->process );
+
+				//printf( "*Current Tail: %lu-%u Previous Tail: %lu-%u\n",
+				                             //page_table_tail->value,
+				                             //page_table_tail->process,
+				                             //page_table_tail->prev->value,
+				                             //page_table_tail->prev->process );
 			}
 
 			free( temp );
@@ -361,6 +386,7 @@ struct Node *delete( struct Node   *root,
 
 			//printf( "Handling here %p %p\n", root, page_table_tail );
 			//printf( "%lu %lu", root->value, page_table_tail->value );
+
 			// Get the inorder successor
 			struct Node *temp = min_value( root->rhs );
 
@@ -583,7 +609,9 @@ int main( int argc, char *argv[] ) {
 
 				// TLB miss
 				current = create_linked_list( address, file_number );
-				//printf( "Value readed (want to add): %lu-%u\n", address, file_number );
+
+				//printf( "Value readed (want to add): %lu-%u\n",
+				                                       //address, file_number );
 
 				// Check if TLB is full
 				if ( tlb_recorder == tlbentries ) {
@@ -613,48 +641,74 @@ int main( int argc, char *argv[] ) {
 				// Check if we hit the page table or we updated the table
 				// Page table hit
 				if ( page_table_hit ) {
-/*
+
+					/*
 					printf( "This new value is in the list\n" );
+
 					if ( page_table_recorder > 1 ) {
 
-						struct Node *c = page_table_tail;
+						struct Node *c   = page_table_tail;
 						unsigned int cou = 0;
+
 						while ( c != NULL ) {
+
 							cou++;
 							c = c->prev;
 						}
+
 						printf( "Length of the list is: %u\n", cou );
+
 						if ( cou >= 11 ) {
+
 							struct Node *c = page_table_tail;
+
 							for( unsigned int ddd = 0; ddd < 10; ddd++ ){
+
 								printf( "%lu-%u -> ", c->value, c->process );
 								c = c->prev;
 							}
+
 							c = c->next;
 							printf("\n");
+
 							for( unsigned int ddd = 0; ddd < 10; ddd++ ){
+
 								printf( "%lu-%u -> ", c->value, c->process );
 								c = c->next;
 							}
 						}
-						if ( page_table_head->next != NULL && page_table_head->prev == NULL ) {
-							printf( "Head is correct, Head: %lu-%u \n", page_table_head->value, page_table_head->process );
-							if ( page_table_tail->prev != NULL && page_table_tail->next == NULL )
-								printf( "Tail is correct, Tail: %lu-%u\n", page_table_tail->value, page_table_tail->process );
+
+						if ( page_table_head->next != NULL &&
+						     page_table_head->prev == NULL ) {
+
+							printf( "Head is correct, Head: %lu-%u \n",
+							                         page_table_head->value,
+							                         page_table_head->process );
+
+							if ( page_table_tail->prev != NULL &&
+							     page_table_tail->next == NULL )
+								printf( "Tail is correct, Tail: %lu-%u\n",
+								                     page_table_tail->value,
+								                     page_table_tail->process );
+
 							else {
-								printf( "Tail failed. Tail is %lu-%u\n", page_table_tail->value, page_table_tail->process );
+								printf( "Tail failed. Tail is %lu-%u\n",
+								                     page_table_tail->value,
+								                     page_table_tail->process );
 								printf( "%lu\n", page_table_recorder );
 								exit(1);
 							}
-						}
-						else {
+						} else {
+
 							printf( "%lu\n", page_table_recorder );
 							exit(1);
 						}
 
 					}
+
 					printf("-----\n");
-*/
+					*/
+
 					continue;
 				}
 
@@ -669,8 +723,10 @@ int main( int argc, char *argv[] ) {
 
 				// Remove one entry by FIFO or LRU
 				if ( page_table_recorder > physpages ) {
+
 					//printf( "Head is %lu\n", page_table_head->value );
 					//printf( "Try to remove: %lu\n", page_table_tail->value );
+
 					// Add one on pageout if the last entry belongs
 					// to this process
 					if ( page_table_tail->process == file_number )
@@ -684,55 +740,83 @@ int main( int argc, char *argv[] ) {
 					           delete( page_table_avl[page_table_tail->process],
 					                   page_table_tail->value,
 					                   true );
+
 					//printf( "Head is %lu\n", page_table_head->value );
 					//printf( "Tail is %lu\n", page_table_tail->value );
+
 					page_table_recorder--;
 				}
+
 				//printf( "%llu\n", avs_helper[0] + avs_helper[1] );
 
 				if ( page_table_tail != NULL && page_table_tail->prev != NULL )
 					page_table_tail = page_table_tail->prev->next;
-/*
+
+				/*
 				if ( page_table_recorder > 1 ) {
 
-					struct Node *c = page_table_tail;
+					struct Node *c  = page_table_tail;
 					unsigned int cou = 0;
+
 					while ( c != NULL ) {
+
 						cou++;
 						c = c->prev;
 					}
+
 					printf( "Length of the list is: %u\n", cou );
+
 					if ( cou >= 11 ) {
+
 						struct Node *c = page_table_tail;
+
 						for( unsigned int ddd = 0; ddd < 10; ddd++ ){
+
 							printf( "%lu-%u -> ", c->value, c->process );
 							c = c->prev;
 						}
+
 						c = c->next;
 						printf("\n");
+
 						for( unsigned int ddd = 0; ddd < 10; ddd++ ){
+
 							printf( "%lu-%u -> ", c->value, c->process );
 							c = c->next;
 						}
 					}
-					if ( page_table_head->next != NULL && page_table_head->prev == NULL ) {
-						printf( "Head is correct, Head: %lu-%u \n", page_table_head->value, page_table_head->process );
-						if ( page_table_tail->prev != NULL && page_table_tail->next == NULL )
-							printf( "Tail is correct, Tail: %lu-%u\n", page_table_tail->value, page_table_tail->process );
+
+					if ( page_table_head->next != NULL && 
+					     page_table_head->prev == NULL ) {
+
+						printf( "Head is correct, Head: %lu-%u \n",
+						     page_table_head->value, page_table_head->process );
+
+						if ( page_table_tail->prev != NULL &&
+						     page_table_tail->next == NULL )
+							printf( "Tail is correct, Tail: %lu-%u\n",
+							                         page_table_tail->value,
+							                         page_table_tail->process );
+
 						else {
-							printf( "Tail failed. Tail is %lu-%u\n", page_table_tail->value, page_table_tail->process );
+
+							printf( "Tail failed. Tail is %lu-%u\n",
+							                         page_table_tail->value,
+							                         page_table_tail->process );
 							printf( "%lu\n", page_table_recorder );
 							exit(1);
 						}
-					}
-					else {
+					} else {
+
 						printf( "%lu\n", page_table_recorder );
 						exit(1);
 					}
 
 				}
+
 				printf("\n-----\n");
-*/
+				*/
+
 				for ( counter_for_file = 0;
 				      counter_for_file < number_of_files;
 				      counter_for_file++ )
