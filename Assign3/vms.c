@@ -60,10 +60,12 @@ FILE              **trace;
 void exit_with_error( char* error_message ) {
 
 	printf( "Error: %s\n", error_message );
+	/*
 	free( tlbhits );
 	free( pf );
 	free( pageout );
 	free( avs );
+	*/
 	exit(1);
 }
 
@@ -358,6 +360,11 @@ struct Node *delete( struct Node   *root,
 
 			} else {
 
+				//if ( debug )
+					//printf( "Tail failed. Tail: %lu-%u\n",
+										           //page_table_tail->value,
+										           //page_table_tail->process );
+
 				if ( !change_tail && page_table_tail->prev != NULL )
 					page_table_tail = page_table_tail->prev->next;
 
@@ -390,14 +397,27 @@ struct Node *delete( struct Node   *root,
 				if ( temp == page_table_head )
 					page_table_head  = root;
 
+				if ( temp == page_table_tail )
+					page_table_tail  = root;
+
 				//printf( "*Current Tail: %lu-%u Previous Tail: %lu-%u\n",
 				                             //page_table_tail->value,
 				                             //page_table_tail->process,
 				                             //page_table_tail->prev->value,
 				                             //page_table_tail->prev->process );
+				//if ( debug )
+					//printf( "Tail failed. Tail! %lu-%u\n",
+										           //page_table_tail->value,
+										           //page_table_tail->process );
 			}
 
 			free( temp );
+			temp = NULL;
+
+			//if ( debug )
+				//printf( "Tail failed. Tail- %lu-%u\n",
+										           //page_table_tail->value,
+										           //page_table_tail->process );
 
 		} else {
 
@@ -419,6 +439,14 @@ struct Node *delete( struct Node   *root,
 
 			if ( temp == page_table_head )
 				page_table_head   = root;
+
+			if ( temp == page_table_tail )
+				page_table_tail   = root;
+			
+			//if ( debug )
+				//printf( "Tail failed. Tail is %lu-%u\n",
+										           //page_table_tail->value,
+										           //page_table_tail->process );
 
 			root->rhs             = delete( root->rhs, temp->value, false );
 		}
@@ -565,6 +593,8 @@ int main( int argc, char *argv[] ) {
 
 				// Ignore the invalid ending bytes
 				if ( result != 4 ) {
+				
+					//printf( "Here\n" );
 
 					end_of_file[file_number] = true;
 					fclose( trace[file_number] );
@@ -573,6 +603,16 @@ int main( int argc, char *argv[] ) {
 					current = tlb;
 
 					while ( current != NULL ) {
+
+						/*
+						previous = tlb;
+						while ( previous != NULL && previous->next != previous ) {
+						
+							printf( "%lu-%u -> ", previous->value, previous->process );
+							previous = previous->next;
+						}
+						*/
+						//printf( "\n%lu-%u\n", tlb->value, tlb->process );
 
 						if ( current->process == file_number ) {
 
@@ -586,16 +626,41 @@ int main( int argc, char *argv[] ) {
 							if ( current == tlb && tlb_recorder > 1 )
 								tlb = current->next;
 
+							//printf( "\n%lu-%u\n", tlb->value, tlb->process );
+							//printf( "Current Next: %lu-%u\n", current->next->next->value, current->next->next->process );
+
 							if ( current->next != NULL )
 								current->next->prev = current->prev;
+							//printf( "Current: %lu-%u\n", current->value, current->process );
+							//printf( "Current Next: %lu-%u\n", current->next->next->value, current->next->next->process );
 
+							//if ( current->prev != NULL )
+								//printf( "Current prev: %lu-%u\n", current->prev->value, current->prev->process );
 							if ( current->prev != NULL )
 								current->prev->next = current->next;
+								
+							//printf( "Current: %lu-%u\n", current->value, current->process );
+							//printf( "Current Next: %lu-%u\n", current->next->next->value, current->next->next->process );
 
 							previous = current;
 							current  = current->next;
+
+							//printf( "Current: %lu-%u\n", current->value, current->process );
+							//printf( "Current Next: %lu-%u\n", current->next->value, current->next->process );
+							
 							free( previous );
+							previous = NULL;
 							tlb_recorder--;
+							
+							/*
+							previous = tlb;
+							while ( previous != NULL && previous->next != previous ) {
+						
+								printf( "%lu-%u -> ", previous->value, previous->process );
+								previous = previous->next;
+							}
+							printf( "\n%lu-%u\n", tlb->value, tlb->process );
+							*/
 						}
 					}
 
@@ -609,8 +674,7 @@ int main( int argc, char *argv[] ) {
                                          page_table_avl[file_number]->value,
 						                 page_table_avl[file_number]->process );
 
-						if ( page_table_recorder < 9 &&
-						     page_table_recorder > 1 ) {
+						if ( page_table_recorder > 1 ) {
 
 							struct Node *c   = page_table_tail;
 							unsigned int cou = 0;
@@ -673,6 +737,7 @@ int main( int argc, char *argv[] ) {
 
 						}
 						*/
+						
 
 						if ( page_table_avl[file_number]->next != NULL )
 							page_table_avl[file_number]->next->prev = 
@@ -687,7 +752,7 @@ int main( int argc, char *argv[] ) {
 
 						if ( page_table_avl[file_number] == page_table_head )
 							page_table_head = page_table_avl[file_number]->next;
-
+						
 						/*
 						if ( page_table_head != NULL )
 							printf( "Head: %lu-%u \n",
@@ -708,7 +773,7 @@ int main( int argc, char *argv[] ) {
 						                     false );
 
 						//printf( "Finished\n" );
-
+						//printf( "%lu\n", page_table_recorder - 1 );
 						//printf("-----\n");
 
 						page_table_recorder--;
@@ -734,6 +799,8 @@ int main( int argc, char *argv[] ) {
 
 				// Store in a 32 bit variable, remove the offset
 				address = *(unsigned long*)input_bin>>offset;
+				
+				//printf( "%lu\n", address );
 
 				// Try to hit TLB
 				current  = tlb;
@@ -759,6 +826,7 @@ int main( int argc, char *argv[] ) {
 								current->next->prev = previous;
 
 							current->next           = tlb;
+							current->prev           = NULL;
 
 							if ( tlb != NULL )
 								tlb->prev           = current;
@@ -788,6 +856,7 @@ int main( int argc, char *argv[] ) {
 					// Remove the least recent unit
 					previous->prev->next = NULL;
 					free( previous );
+					previous = NULL;
 					tlb_recorder--;
 				}
 
