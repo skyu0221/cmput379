@@ -78,4 +78,7 @@ the largest space to save number. We use unsigned long int to save process
 number and the address because the maximum number of arguments we can have in
 the bash is less than 2^32.
 
+The run time for the longest (slowest) case is around 15 second in Intel(R) 
+Core(TM)2 Duo CPU E6750  @ 2.66GHz (CSC 2-19).
+
 -------------------------------------------------------------------------------
