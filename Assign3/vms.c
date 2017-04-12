@@ -737,7 +737,9 @@ int main( int argc, char *argv[] ) {
 				      counter_for_file++ )
 					avs[counter_for_file] += ( avs_helper[counter_for_file] -
 					                           avs[counter_for_file] ) /
-					                         ( references + 1 );
+					                         references;
+
+
 			}
 		}
 	}
@@ -745,8 +747,8 @@ int main( int argc, char *argv[] ) {
 	// Finished reading trace files
 	// Print out the result to stdout
 	for ( file_number = 0; file_number < number_of_files; file_number++ )
-		printf( "%llu %llu %llu %Lf\n", tlbhits[file_number],
+		printf( "%llu %llu %llu %llu\n", tlbhits[file_number],
 		                                pf[file_number],
 		                                pageout[file_number],
-		                                avs[file_number] );
+		                                (unsigned long long)avs[file_number] );
 }
