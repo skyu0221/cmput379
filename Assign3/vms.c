@@ -665,8 +665,17 @@ int main( int argc, char *argv[] ) {
 				}
 
 				// TLB hit
-				if ( marker )
+				if ( marker ) {
+
+					for ( counter_for_file = 0;
+					      counter_for_file < number_of_files;
+					      counter_for_file++ )
+						avs[counter_for_file] += ( avs_helper[counter_for_file] -
+									   avs[counter_for_file] ) /
+									 references;
+
 					continue;
+				}
 
 				// TLB miss
 				current = create_linked_list( address, file_number );
@@ -700,6 +709,13 @@ int main( int argc, char *argv[] ) {
 				// Check if we hit the page table or we updated the table
 				// Page table hit
 				if ( page_table_hit ) {
+
+					for ( counter_for_file = 0;
+					      counter_for_file < number_of_files;
+					      counter_for_file++ )
+						avs[counter_for_file] += ( avs_helper[counter_for_file] -
+									   avs[counter_for_file] ) /
+									 references;
 
 					continue;
 				}
