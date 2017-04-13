@@ -416,27 +416,30 @@ int main( int argc, char *argv[] ) {
 		exit_with_error( "Number of arguments are wrong" );
 
 	// tvm379 pgsize tlbentries {g|p} quantum physpages {f|l} trace1 trace2 ...
-	unsigned int       i,
-	                   offset,
-	                   result,
-	                   file_number,
-	                   counter_for_file,
-	                   tlb_recorder        = 0,
-	                   number_of_files     = argc - 7;
-	char               input_bin[4],
-	                   temp;
-	unsigned long      pgsize              = atol( argv[1] ),
-	                   tlbentries          = atol( argv[2] ),
-	                   gp                  =      *argv[3],
-	                   quantum             = atol( argv[4] ),
-	                   physpages           = atol( argv[5] ),
-	                   address             = 0,
-	                   page_table_recorder = 0;
-	unsigned long long references          = 0;
-	struct LinkedList *current,
-	                  *previous;
-	bool               marker;
-    fl                                     =      *argv[6];
+	unsigned int        i,
+	                    offset,
+	                    result,
+	                    file_number,
+	                    counter_for_file,
+	                    tlb_recorder        = 0,
+	                    number_of_files     = argc - 7;
+	char                input_bin[4],
+	                    temp;
+	unsigned long       pgsize              = atol( argv[1] ),
+	                    tlbentries          = atol( argv[2] ),
+	                    gp                  =      *argv[3],
+	                    quantum             = atol( argv[4] ),
+	                    physpages           = atol( argv[5] ),
+	                    address             = 0,
+	                    page_table_recorder = 0;
+	unsigned long long  references          = 0;
+	struct LinkedList  *current             = NULL,
+	                   *previous            = NULL;
+	struct Node        *pt                  = NULL;
+	bool                marker,
+	                    changed             = true,
+	                    check_pt            = false;
+    fl                                      =      *argv[6];
 
 	// Check if pgsize is a power of 2 or in range
 	if ( pgsize < 16 || pgsize > 65536 || !POWOF2( pgsize ) )
@@ -455,8 +458,8 @@ int main( int argc, char *argv[] ) {
         exit_with_error( "quantum is not a positive number" );
 
     // Check physpages is in range
-	if ( physpages > 1000000 || physpages < tlbentries )
-        exit_with_error( "physpages is not in tlbentries~1000000" );
+	if ( physpages > 1000000 || physpages < 1 )
+        exit_with_error( "physpages is not in 1~1000000" );
 
     // Check fl is 'f' or 'l'
 	if ( fl != 'f' && fl != 'l' )
@@ -529,9 +532,8 @@ int main( int argc, char *argv[] ) {
 					free( previous );
 					previous = NULL;
 					tlb_recorder--;
-				
 				}
-				
+
 				tlb = NULL;
 				tlb_recorder = 0;
 			}
@@ -577,7 +579,9 @@ int main( int argc, char *argv[] ) {
 							free( previous );
 							previous = NULL;
 							tlb_recorder--;
-						}
+						} else
+							current = current->next;
+
 					}
 
 					// Clean page table when a process is terminated
@@ -606,11 +610,10 @@ int main( int argc, char *argv[] ) {
 						avs_helper[file_number]--;
 					}
 
-					if ( avs_helper[file_number] != 0 )
-						printf( "Page Table is not cleaned\n" );
+					//if ( avs_helper[file_number] != 0 )
+						//printf( "Page Table is not cleaned\n" );
 
-					debug = true;
-
+					//debug = true;
 					break;
 				}
 
@@ -625,6 +628,76 @@ int main( int argc, char *argv[] ) {
 
 				// Store in a 32 bit variable, remove the offset
 				address = *(unsigned long*)input_bin>>offset;
+				//printf( "%llu %lu\n", references, address );
+
+				/*
+				// This part is for debug
+				// Can print all information for each reference
+				if ( changed ) {
+
+					// Print basic data
+					printf( "===============\n" );
+					printf( "Before simulation:\n" );
+					printf( "TLB: %u/%lu\n", tlb_recorder, tlbentries );
+					printf( "PT: %lu/%lu\n", page_table_recorder, physpages );
+					printf( "Value read: %lu:%u\n", address, file_number );
+					printf( "     -----\n" );
+
+					// Print TLB table
+					if ( tlb_recorder != 0 ) {
+
+						current = tlb;
+
+						for ( unsigned int help = 0; help < tlb_recorder - 1; help++ ) {
+
+							printf( "%lu:%u <- ", current->value, current->process );
+							current = current->next;
+						}
+
+						if ( current != NULL )
+							printf( "%lu:%u\n", current->value, current->process );
+
+						printf( "     -----\n" );
+					}
+
+					// Print Page Table
+					if ( page_table_recorder != 0 ) {
+
+						pt       = page_table_tail;
+						check_pt = false;
+
+						for ( unsigned long help = 0; help < page_table_recorder - 1; help++ ) {
+
+							printf( "%lu:%u <- ", pt->value, pt->process );
+							if ( pt != pt->prev->next )
+								check_pt = true;
+
+							pt = pt->prev;
+						}
+
+						if ( pt != NULL )
+							printf( "%lu:%u\n", pt->value, pt->process );
+
+						if ( pt != page_table_head )
+							check_pt = true;
+
+						if ( check_pt ) {
+
+							printf( "ERROR IN PAGE TABLE\n" );
+
+							// Error wise checker
+							getchar();
+						}
+					}
+
+					printf( "===============\n" );
+
+					// Step wise checker
+					//getchar();
+
+					changed = false;
+				}
+				*/
 
 				// Try to hit TLB
 				current  = tlb;
@@ -679,6 +752,8 @@ int main( int argc, char *argv[] ) {
 
 				// TLB miss
 				current = create_linked_list( address, file_number );
+
+				changed = true;
 
 				// Check if TLB is full
 				if ( tlb_recorder == tlbentries ) {
