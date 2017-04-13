@@ -758,8 +758,8 @@ int main( int argc, char *argv[] ) {
 									   references;
 
 					// Update LRU in memory
-					page_table_hit = false;
-					page_table_avl[file_number] = insert( \
+					if ( fl == 'l' )
+						page_table_avl[file_number] = insert( \
 					                               page_table_avl[file_number],
 					                               address,
 					                               file_number );
