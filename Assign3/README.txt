@@ -26,7 +26,7 @@ Usage
 	pgsize:		16~65536
 	tlbentries:	8~256
 	quantum:	1~infinity
-	physpages:	tlbentries~1000000
+	physpages:	1~1000000
 
 Output
 
