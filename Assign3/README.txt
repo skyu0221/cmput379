@@ -59,14 +59,20 @@ members: reference, process, pointer to next node, pointer to previous node.
 There are tlbentries number of that node. The node for page table have 7 
 members: reference, process, height, left-child, right-child, pointer to next 
 node, pointer to previous node. This structure can save memory space occupied 
-by the program.  
+by the program.
+
+This program saved lots of space because we use a size physpages number of 
+nodes to implement page table base on the fact that the number of valid entries
+in page table will always less than or equal to the number of actual frames in 
+the memory.
 
 The program will first convert 4 bytes input into 32-bit long integers. It will
 then remove the offset, this value is then searched in the TLB table. If hit, 
-tlbhits increases, else TLB table will be updated by LRU, and searched in page
-table. If hit page table, nothing happens, else pf increases, and updates the 
-page table by given policy. If a value is removed from the page table by 
-the given eviction policy, pageout of the removed value's process increases.
+tlbhits increases and update the page table FIFO or LRU order information, else
+TLB table will be updated by LRU, and searched in page table. If hit page
+table, nothing happens, else pf increases, and updates the page table by given 
+policy. If a value is removed from the page table by the given eviction policy,
+pageout of the removed value's process increases.
 
 If we cannot read the next 4 bytes from a trace file, that means the process 
 for that trace file should be terminated. When a process is terminated, we will

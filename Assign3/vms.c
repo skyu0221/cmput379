@@ -99,8 +99,8 @@ unsigned int get_offset( unsigned int number ) {
 }
 
 // Create and initial a linked list with given process and value
-struct LinkedList* create_linked_list(
-                                   unsigned long value, unsigned int process ) {
+struct LinkedList* create_linked_list( unsigned long value,
+                                       unsigned int process ) {
 
 	struct LinkedList *node = ( struct LinkedList* )
 	                              malloc( sizeof( struct LinkedList ) );
@@ -468,7 +468,7 @@ int main( int argc, char *argv[] ) {
 	// Check the existances of all trace file
 	for ( i = 0; i < number_of_files; i++ )
 		if ( !check_file_existance( argv[i + 7] ) )
-			exit_with_error( "trace file does not exist or permission denied" );
+			exit_with_error( "trace file doesn't exist or permission denied" );
 
 	// Initialize tlb table, page table, offest length and output counters
 	tlbhits        = ( unsigned long long* )
@@ -589,22 +589,24 @@ int main( int argc, char *argv[] ) {
 
 						if ( page_table_avl[file_number]->next != NULL )
 							page_table_avl[file_number]->next->prev = 
-							                  page_table_avl[file_number]->prev;
+							                 page_table_avl[file_number]->prev;
 
 						if ( page_table_avl[file_number]->prev != NULL )
 							page_table_avl[file_number]->prev->next = 
-							                  page_table_avl[file_number]->next;
+							                 page_table_avl[file_number]->next;
 
 						if ( page_table_avl[file_number] == page_table_tail )
-							page_table_tail = page_table_avl[file_number]->prev;
+							page_table_tail = 
+							                 page_table_avl[file_number]->prev;
 
 						if ( page_table_avl[file_number] == page_table_head )
-							page_table_head = page_table_avl[file_number]->next;
+							page_table_head = 
+							                 page_table_avl[file_number]->next;
 
 						page_table_avl[file_number] = 
-					                 delete( page_table_avl[file_number],
-					                         page_table_avl[file_number]->value,
-						                     false );
+					                delete( page_table_avl[file_number],
+					                        page_table_avl[file_number]->value,
+						                    false );
 
 						page_table_recorder--;
 						avs_helper[file_number]--;
@@ -648,14 +650,18 @@ int main( int argc, char *argv[] ) {
 
 						current = tlb;
 
-						for ( unsigned int help = 0; help < tlb_recorder - 1; help++ ) {
+						for ( unsigned int help = 0;
+						      help < tlb_recorder - 1;
+						      help++ ) {
 
-							printf( "%lu:%u <- ", current->value, current->process );
+							printf( "%lu:%u <- ", current->value,
+							                      current->process );
 							current = current->next;
 						}
 
 						if ( current != NULL )
-							printf( "%lu:%u\n", current->value, current->process );
+							printf( "%lu:%u\n", current->value,
+							                    current->process );
 
 						printf( "     -----\n" );
 					}
@@ -666,7 +672,9 @@ int main( int argc, char *argv[] ) {
 						pt       = page_table_tail;
 						check_pt = false;
 
-						for ( unsigned long help = 0; help < page_table_recorder - 1; help++ ) {
+						for ( unsigned long help = 0;
+						      help < page_table_recorder - 1;
+						      help++ ) {
 
 							printf( "%lu:%u <- ", pt->value, pt->process );
 							if ( pt != pt->prev->next )
@@ -740,43 +748,56 @@ int main( int argc, char *argv[] ) {
 				// TLB hit
 				if ( marker ) {
 
+
 					for ( counter_for_file = 0;
 					      counter_for_file < number_of_files;
 					      counter_for_file++ )
-						avs[counter_for_file] += ( avs_helper[counter_for_file] -
+						avs[counter_for_file] += \
+						             ( avs_helper[counter_for_file] -
 									   avs[counter_for_file] ) /
-									 references;
+									   references;
+
+					// Update LRU in memory
+					page_table_hit = false;
+					page_table_avl[file_number] = insert( \
+					                               page_table_avl[file_number],
+					                               address,
+					                               file_number );
 
 					continue;
+
+				} else {
+
+					// TLB miss
+					current = create_linked_list( address, file_number );
+
+					changed = true;
+
+					// Check if TLB is full
+					if ( tlb_recorder == tlbentries ) {
+
+						// Remove the least recent unit
+						previous->prev->next = NULL;
+						free( previous );
+						previous = NULL;
+						tlb_recorder--;
+					}
+
+					// Take the new entry to the front of TLB
+					current->next = tlb;
+					if ( tlb != NULL )
+						tlb->prev = current;
+					tlb           = current;
+					tlb_recorder++;
 				}
-
-				// TLB miss
-				current = create_linked_list( address, file_number );
-
-				changed = true;
-
-				// Check if TLB is full
-				if ( tlb_recorder == tlbentries ) {
-
-					// Remove the least recent unit
-					previous->prev->next = NULL;
-					free( previous );
-					previous = NULL;
-					tlb_recorder--;
-				}
-
-				// Take the new entry to the front of TLB
-				current->next = tlb;
-				if ( tlb != NULL )
-					tlb->prev = current;
-				tlb           = current;
-				tlb_recorder++;
 
 				// Try to hit page table
 				// Hash for the process
 				page_table_hit              = false;
 				page_table_avl[file_number] = 
-				    insert( page_table_avl[file_number], address, file_number );
+				    insert( page_table_avl[file_number],
+				            address,
+				            file_number );
 
 				// Take the linked list for page table with this address to the
 				// front of the list (LRU).
@@ -788,11 +809,12 @@ int main( int argc, char *argv[] ) {
 					for ( counter_for_file = 0;
 					      counter_for_file < number_of_files;
 					      counter_for_file++ )
-						avs[counter_for_file] += ( avs_helper[counter_for_file] -
+						avs[counter_for_file] += \
+						             ( avs_helper[counter_for_file] -
 									   avs[counter_for_file] ) /
 									 references;
 
-					continue;
+						continue;
 				}
 
 				// Page table miss
@@ -807,15 +829,45 @@ int main( int argc, char *argv[] ) {
 				// Remove one entry by FIFO or LRU
 				if ( page_table_recorder > physpages ) {
 
+					// Need to remove TLB as well
+					current  = tlb;
+
+					while ( current != NULL ) {
+
+						if ( current->value   == page_table_tail->value &&
+							 current->process == page_table_tail->process ) {
+
+							break;
+						}
+
+						current  = current->next;
+					}
+					
+					if ( current != NULL ) {
+
+						if ( current != tlb )
+							current->prev->next = current->next;
+						else
+							tlb = current->next;
+
+						if ( current->next != NULL )
+							current->next->prev = current->prev;
+
+						free( current );
+						current = NULL;
+						tlb_recorder--;
+					
+					}
+
 					// Add one on pageout of the removed process
 					pageout[page_table_tail->process]++;
 
 					avs_helper[page_table_tail->process]--;
 
 					page_table_avl[page_table_tail->process] =
-					           delete( page_table_avl[page_table_tail->process],
-					                   page_table_tail->value,
-					                   true );
+					          delete( page_table_avl[page_table_tail->process],
+					                  page_table_tail->value,
+					                  true );
 
 					page_table_recorder--;
 				}
